@@ -8,6 +8,8 @@ from pymoo.algorithms.nsga2 import NSGA2
 
 from pymoo.optimize import minimize
 from pymoo.visualization.scatter import Scatter
+from pymoo.util.termination.x_tol import DesignSpaceToleranceTermination
+from pymoo.performance_indicator.hv import Hypervolume
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 
 
@@ -24,8 +26,8 @@ from sampling import *
 from problem import *
 
 class Algorithm:
-    def __init__(self):
-        xls = pd.ExcelFile(r'data/FictitiousData.xlsx')
+    def __init__(self, pop_size, n_offspring, sampling, crossover, mutation):
+        xls = pd.ExcelFile(r'../data/FictitiousData.xlsx')
         self.demand = pd.read_excel(xls, 'CustomerDemand', header=0, index_col='CustomerID')
         self.service_stations = pd.read_excel(xls, 'ServiceStations', header=0, index_col='ID')
         self.bus_schedule = pd.read_excel(xls, 'PublicTransit', header=0)  # Bus schedule
@@ -45,31 +47,33 @@ class Algorithm:
 
         self.result = None
         self.problem = None
+        self.history = None
 
-    def go(self, ngen, pop_size, n_offspring):
         self.problem = MyProblem(self.travel_time, self.travel_distance, self.service_stations, self.demand, self.time_windows, self.n_vehicles)
-        termination = get_termination("n_gen", ngen)
+        # termination = get_termination("n_gen", ngen)
+        termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20)
         algorithm = NSGA2(
             pop_size=pop_size,
             n_offsprings=n_offspring,
-            sampling=MySampling(self.demand, self.n_vehicles),
-            crossover=MyCrossover(self.demand),
-            mutation=MyMutation(),
+            sampling=sampling(self.demand, self.n_vehicles),
+            crossover=crossover(self.demand),
+            mutation=mutation(),
         )
-        # Optimize a copy of the algorithm to ensure reproducibility
-        obj = copy.deepcopy(algorithm)
 
-        obj.setup(self.problem, termination=termination, seed=1)
+        algorithm.setup(self.problem, termination=termination, seed=1, save_history=True, )
+        self.algorithm = algorithm
 
+    def run(self, save_history=True):
         # until the termination criterion has not been met
-        while obj.has_next():
-            obj.next()  # Performs an iteration of the algorithm
+        self.history = {'F': [], 'n_evals': []}
+        while self.algorithm.has_next():
+            self.algorithm.next()  # Performs an iteration of the algorithm
+            if save_history:
+                self.history['F'].append(self.algorithm.opt.get('F').min(axis=0))
+                self.history['n_evals'].append(self.algorithm.evaluator.n_eval)
+            print(f"gen: {self.algorithm.n_gen} n_nds: {len(self.algorithm.opt)} constr: {self.algorithm.opt.get('CV').min()} ideal: {self.algorithm.opt.get('F').min(axis=0)}")
 
-            # Print current iteration results
-            print(f"gen: {obj.n_gen} n_nds: {len(obj.opt)} constr: {obj.opt.get('CV').min()} ideal: {obj.opt.get('F').min(axis=0)}")
-
-        result = obj.result()  # Final results
-        self.result = result
+        self.result = self.algorithm.result()  # Final results
 
     def save_pareto(self):
         # Get the pareto-set and pareto-front for plotting
@@ -110,8 +114,7 @@ class Algorithm:
             return self.time_windows.loc[self.demand.loc[customer]['TimeWindow']][bound]
 
     def eval_timewindow(self, X):
-        idx = np.where(X != 0)[0]
-        veh_routes = np.split(X[idx], np.where(np.diff(idx) != 1)[0] + 1)
+        veh_routes = split_at_delimiter(X)
         df_dict = {}
 
         # Loop over each route
@@ -158,7 +161,6 @@ class Algorithm:
 
     def plot_tw_violation(self, X):
         df = self.eval_timewindow(X)
-        # df = copy.deepcopy()
         df = df.merge(self.demand, on='CustomerID')
         df['DesiredPickupStart'] = [self._get_time_window(c, bound='start') for c in df['CustomerID']]
         df['DesiredPickupEnd'] = [self._get_time_window(c, bound='end') for c in df['CustomerID']]
@@ -186,7 +188,30 @@ class Algorithm:
         for i, customer in df.iterrows():
             plt.scatter(customer['ActualPickup'], i, color=colors[customer['Vehicle']], s=16)
             plt.plot(customer['Window'], [i, i], color=colors[customer['Vehicle']], linewidth=1)
+        plt.title('(Proto-) Time-Space Diagram')
+        plt.xlabel('Date/Time')
+        plt.ylabel('Distance (NOT TO SCALE)')
         plt.savefig('plots/demand.jpg')
+
+    def plot_convergence(self):
+        if self.history is None:
+            raise ValueError('Set save_history to True!')
+        plt.figure(figsize=(8, 6), dpi=110)
+
+        ref_point = np.array([10000, 2000, 400])
+
+        # create the performance indicator object with reference point
+        metric = Hypervolume(ref_point=ref_point, normalize=False)
+
+        # calculate for each generation the HV metric
+        hv = [metric.calc(f) for f in algo.history['F']]
+
+        # visualze the convergence curve
+        plt.plot(self.history['n_evals'], hv, '-o', markersize=4, linewidth=2)
+        plt.title("Convergence")
+        plt.xlabel("Function Evaluations")
+        plt.ylabel("Hypervolume")
+        plt.savefig('plots/convergence.jpg')
 
     @staticmethod
     def _od_to_dict(df):
@@ -204,7 +229,45 @@ class Algorithm:
         return bus_assignmnet
 
 
+def plot_convergences(algos, names):
+    plt.figure(figsize=(8, 6), dpi=110)
+    for algo, name_ in zip(algos, names):
+        if algo.history is None:
+            raise ValueError('Set save_history to True!')
+
+        ref_point = np.array([10000, 2000, 400])
+
+        # create the performance indicator object with reference point
+        metric = Hypervolume(ref_point=ref_point, normalize=False)
+
+        # calculate for each generation the HV metric
+        f0 = np.max([f[0] for f in algo.history['F']])
+        f1 = np.max([f[1] for f in algo.history['F']])
+        f2 = np.max([f[2] for f in algo.history['F']])
+
+        algo.history['F'] = [np.array([f[0]/f0, f[1]/f1, f[2]/f2]) for f in algo.history['F']]
+        hv = [metric.calc(f) for f in algo.history['F']]
+
+        # visualze the convergence curve
+        plt.plot(algo.history['n_evals'], hv, '-o', markersize=4, linewidth=2, label=name_)
+
+    plt.title("Convergence")
+    plt.xlabel("Function Evaluations")
+    plt.ylabel("Hypervolume")
+    plt.legend()
+    plt.savefig('plots/convergence.jpg')
+
 if __name__ == '__main__':
-    algo = Algorithm()
-    algo.go(ngen=100, pop_size=50, n_offspring=20)
-    algo.plot_tw_violation(algo.result.X[4])
+    algos = []
+    names = ['Random Sampling', 'Sorted Sampling']
+    for sample in [RandomSample, OrderByTimeSample]:
+        algo = Algorithm(pop_size=50,
+                         n_offspring=20,
+                         sampling=sample,
+                         crossover=SinglePoint,
+                         mutation=RandomMutation,
+                         )
+        algo.run()
+        algos.append(algo)
+    # algo.plot_tw_violation(algo.result.X[np.argmin([f[2] for f in algo.result.F])])
+    plot_convergences(algos, names)

@@ -1,6 +1,7 @@
 import numpy as np
 from pymoo.model.problem import Problem
 from datetime import datetime, date, timedelta
+from utils import *
 
 class MyProblem(Problem):
     def __init__(self, travel_time, travel_distance, service_stations, demand, time_windows, n_vehicles):
@@ -15,8 +16,6 @@ class MyProblem(Problem):
 
         super().__init__(n_var=chromosome_len,  # Number of genes
                          n_obj=3,  # Number of objectives
-                         # xl=np.array([min(locations)] * n_genes),  # Lower bound for genes (should be same length as value of n_var)
-                         # xu=np.array([max(locations)] * n_genes),  # Upper bound (ditto)
                          type_var=np.int,
                          elementwise_evaluation=True,
                          )
@@ -27,9 +26,7 @@ class MyProblem(Problem):
         f3 = 0  # Time window violation
 
         # Separate chromosome into routes by the delimiter (0)
-        # veh_routes = [np.array(g) for k, g in groupby(X, lambda x: x != 0) if k]
-        idx = np.where(X != 0)[0]
-        veh_routes = np.split(X[idx], np.where(np.diff(idx) != 1)[0] + 1)
+        veh_routes = split_at_delimiter(X)
 
         # Loop over each route
         for veh_i, veh_route in enumerate(veh_routes):

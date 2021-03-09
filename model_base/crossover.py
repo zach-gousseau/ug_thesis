@@ -5,7 +5,7 @@ import random
 from pymoo.model.crossover import Crossover
 
 
-class MyCrossover(Crossover):
+class SinglePoint(Crossover):
     def __init__(self, demand):
         # define the crossover: number of parents and number of offsprings
         super().__init__(2, 2)
@@ -16,7 +16,7 @@ class MyCrossover(Crossover):
         # The input of has the following shape (n_parents, n_matings, n_var)
         _, n_matings, n_var = X.shape
 
-        # The output owith the shape (n_offsprings, n_matings, n_var)
+        # The output with the shape (n_offsprings, n_matings, n_var)
         # Because there the number of parents and offsprings are equal it keeps the shape of X
         Y = np.full_like(X, None, dtype=np.object)
 

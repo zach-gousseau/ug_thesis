@@ -3,7 +3,7 @@ import random
 from pymoo.model.mutation import Mutation
 
 
-class MyMutation(Mutation):
+class RandomMutation(Mutation):
     def __init__(self):
         super().__init__()
 
