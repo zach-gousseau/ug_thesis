@@ -51,6 +51,7 @@ class Algorithm:
             sampling=sampling(data=self.data),
             crossover=crossover(data=self.data),
             mutation=mutation(data=self.data),
+            eliminate_duplicates=True,
         )
 
         algorithm.setup(problem(data=self.data), termination=termination, seed=1, save_history=True, pf=True)

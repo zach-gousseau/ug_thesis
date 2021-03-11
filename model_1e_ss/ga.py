@@ -168,54 +168,55 @@ class BasicGA(Algorithm):
 
 
 if __name__ == '__main__':
-    # algos = []
-    # names = ['Random Sampling', 'Sorted Sampling']
-    # for sample in [RandomSample, OrderByTimeSample]:
-    #     algo = Algorithm(pop_size=50,
-    #                      n_offspring=20,
-    #                      sampling=sample,
-    #                      crossover=SinglePoint,
-    #                      mutation=RandomMutation,
-    #                      )
-    #     algo.run()
-    #     algos.append(algo)
-    #
-    # for algo, name_ in zip(algos, names):
-    #     if algo.history is None:
-    #         raise ValueError('Set save_history to True!')
-    #
-    #     ref_point = np.array([10000, 2000, 400])
-    #
-    #     # create the performance indicator object with reference point
-    #     metric = Hypervolume(ref_point=ref_point, normalize=False)
-    #
-    #     # calculate for each generation the HV metric
-    #     # f0 = np.max([f[0] for f in algo.history['F']])
-    #     # f1 = np.max([f[1] for f in algo.history['F']])
-    #     # f2 = np.max([f[2] for f in algo.history['F']])
-    #     #
-    #     # algo.history['F'] = [np.array([f[0]/f0, f[1]/f1, f[2]/f2]) for f in algo.history['F']]
-    #     hv = [metric.calc(f) for f in algo.history['F']]
-    #
-    #     # visualze the convergence curve
-    #     ax.plot(algo.history['n_evals'], hv, '-o', markersize=4, linewidth=2, label=name_)
-    #
-    # ax.set_title("Convergence")
-    # ax.set_xlabel("Function Evaluations")
-    # ax.set_ylabel("Hypervolume")
-    # ax.legend()
-    # fig.savefig('model_1e_ss/plots/convergence.jpg')
-    # plt.close(fig)
+    algos = []
+    names = ['Sorted Sampling', 'Random Sampling']
+    for sample in [SortSmartSample, RandomSample]:
+        algo = Algorithm(pop_size=50,
+                         n_offspring=20,
+                         problem=MyProblem,
+                         sampling=sample,
+                         crossover=CrossRoutes,
+                         mutation=RandomMutation,
+                         )
+        algo.run()
+        algos.append(algo)
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
+    for algo, name_ in zip(algos, names):
+        if algo.history is None:
+            raise ValueError('Set save_history to True!')
 
-    algo = BasicGA(pop_size=50,
-                   n_offspring=20,
-                   problem=MyProblem,
-                   sampling=RandomSample,
-                   crossover=CrossRoutes,
-                   mutation=RandomMutation,
-                   )
-    algo.run()
-    # algo.plot_timespace(X=algo.result.X[np.argmin([f[2] for f in algo.result.F])])
-    algo.plot_timespace(idx=-2)
-    algo.plot_all_timespace()
-    algo.plot_convergence()
+        ref_point = np.array([10000, 2000, 400, 400, 10])
+
+        # create the performance indicator object with reference point
+        metric = Hypervolume(ref_point=ref_point, normalize=False)
+
+        # calculate for each generation the HV metric
+        # f0 = np.max([f[0] for f in algo.history['F']])
+        # f1 = np.max([f[1] for f in algo.history['F']])
+        # f2 = np.max([f[2] for f in algo.history['F']])
+        #
+        # algo.history['F'] = [np.array([f[0]/f0, f[1]/f1, f[2]/f2]) for f in algo.history['F']]
+        hv = [metric.calc(f) for f in algo.history['F']]
+
+        # visualze the convergence curve
+        ax.plot(algo.history['n_evals'], hv, '-o', markersize=4, linewidth=2, label=name_)
+
+    ax.set_title("Convergence")
+    ax.set_xlabel("Function Evaluations")
+    ax.set_ylabel("Hypervolume")
+    ax.legend()
+    fig.savefig('model_1e_ss/plots/convergence.jpg')
+    plt.close(fig)
+
+    # algo = BasicGA(pop_size=50,
+    #                n_offspring=20,
+    #                problem=MyProblem,
+    #                sampling=SortSmartSample,
+    #                crossover=CrossRoutes,
+    #                mutation=RandomMutation,
+    #                )
+    # algo.run()
+    # # algo.plot_timespace(X=algo.result.X[np.argmin([f[2] for f in algo.result.F])])
+    # algo.plot_timespace(idx=-2)
+    # algo.plot_all_timespace()
+    # algo.plot_convergence()
