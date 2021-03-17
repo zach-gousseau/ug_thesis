@@ -17,6 +17,7 @@ class Algorithm:
         self.service_stations.index = [s + 500 for s in self.service_stations.index]
         self.bus_schedule = pd.read_excel(xls, 'PublicTransit', header=0)  # Bus schedule
         self.bus_assignment = self._get_bus_assignments(self.bus_schedule)  # Nodes visited by each bus
+        self.bus_stops = np.concatenate(list(self.bus_assignment.values()))
 
         time_windows = pd.read_excel(xls, 'TimeWindows', header=0, index_col='Code')
         time_windows['StartTime'] = [datetime.combine(date.today(), t) for t in time_windows['StartTime']]
@@ -36,7 +37,9 @@ class Algorithm:
             'service_stations': self.service_stations,
             'demand': self.demand,
             'time_windows': self.time_windows,
-            'n_vehicles': self.n_vehicles
+            'n_vehicles': self.n_vehicles,
+            'bus_assignment': self.bus_assignment,
+            'bus_stops': self.bus_stops
         }
 
         self.result = None

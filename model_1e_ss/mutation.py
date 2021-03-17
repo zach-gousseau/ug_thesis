@@ -13,6 +13,7 @@ class RandomMutation(Mutation):
             # for each individual
             for i in range(len(X)):
                 if random.random() > 0.5:
+
                     # Switch two customers
                     X[i] = self.switch_customers(X[i])
                 else:

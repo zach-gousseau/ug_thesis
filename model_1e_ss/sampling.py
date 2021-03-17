@@ -40,81 +40,71 @@ class RandomSample(Sampling):
             assert sum(X[i] == 0) == (self.data['n_vehicles'] - 1)
         return X
 
-class SortSmartSample(Sampling):
+
+class SmartSortSample(Sampling):
     def __init__(self, data):
         super().__init__()
         self.data = data
+
+    def cluster(self):
+        veh_assignment = {ss_id: [] for ss_id in self.data['service_stations'].index}
+        for customer in self.data['demand'].index:
+            org = self.data['demand'].loc[customer]['OriginNodeID']
+            dst = self.data['demand'].loc[customer]['DestinationNodeID']
+
+            # Find total distances from SS -> Customer -> Destination for each SS
+            ss_distances = np.array(
+                [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst] for ss in self.data['service_stations'].NodeID]
+            )
+
+            # Sort the distances and choose a (weighted) random choice of the closest 2 SS.
+            sorted_ss = self.data['service_stations'].index[ss_distances.argsort()]
+            sorted_ss = sorted_ss[:2]
+            weights = [2, 1]
+            weights = [weight/sum(weights) for weight in weights]
+            ss_id = np.random.choice(sorted_ss, p=weights)
+
+            # ss_id = self.data['service_stations'].index[np.argmin(
+                # [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst]
+                #  for ss in self.data['service_stations'].NodeID])]
+
+            veh_assignment[ss_id].append(customer)
+        return veh_assignment
 
     def _do(self, problem, n_samples, **kwargs):
         chromosome_len = (len(self.data['demand']) * 2) + self.data['n_vehicles'] - 1
         X = np.full((n_samples, chromosome_len), 0, dtype=np.int)
         for i in range(n_samples):
 
-            # Get vehicle delimiters
-            veh_delimiter = random.randint(0, len(self.data['demand']))
-            veh_delimiters = []
-            for _ in range(self.data['n_vehicles'] - 1):
-                while veh_delimiter in veh_delimiters:
-                    veh_delimiter = random.randint(0, len(self.data['demand']))
-                veh_delimiters.append(veh_delimiter)
+            # Get vehicle assignment
+            veh_assignment = self.cluster()
+            sorted_customers = self.data['demand'].sort_values('TimeWindow').index
+            j = 0
+            for veh in veh_assignment:
+                veh_assignment[veh] = sorted_customers[sorted_customers.isin(veh_assignment[veh])]
+                for k in range(len(veh_assignment[veh])):
+                    cust = veh_assignment[veh][k]
+                    customer_dest = self.data['demand'].loc[cust]['DestinationNodeID']
 
-            customers = copy.deepcopy(list(self.data['demand'].index))
-            # service_stations = copy.deepcopy(list(self.data['service_stations'].index))
-            random.shuffle(customers)
+                    X[i][j] = cust  # Set customer
 
-            count, offset, j = 0, 0, 0
-            while j < chromosome_len:
-                if count in veh_delimiters:
+                    # Get best service station
+                    if k != len(veh_assignment[veh]) - 1:
+                        next_cust = veh_assignment[veh][k + 1]
+                        ss_id = self.data['service_stations'].index[np.argmin(
+                            [self.data['travel_distance'][customer_dest][self.data['service_stations'].loc[ss].NodeID]
+                             + self.data['travel_distance'][self.data['service_stations'].loc[ss].NodeID][next_cust]
+                             for ss in self.data['service_stations'].index])]
+                    else:
+                        ss_id = self.data['service_stations'].index[np.argmin(
+                            [self.data['travel_distance'][customer_dest][self.data['service_stations'].loc[ss].NodeID]
+                             for ss in self.data['service_stations'].index])]
+
+                    X[i][j + 1] = ss_id
+                    j += 2
+                if j != len(X[i]):
+                    X[i][j] = 0
                     j += 1
-                    count += 1
-                    continue
-                X[i][j + offset] = customers.pop()
-                X[i][j + offset + 1] = -99
-                j += 2
-                count += 1
-
-            ss_idx = np.where(X[i] == -99)[0]
-            for j in ss_idx:
-
-                if j != len(X[i]) - 1:
-                    next_cust = X[i][j + 1]  # Next customer
-                else:
-                    next_cust = 0  # If at the end of the chromosome, no other customer to pick up
-
-                customer_dest = self.data['demand'].loc[X[i][j - 1]]['DestinationNodeID']
-
-                # Find best service station destination
-                if next_cust != 0:
-                    ss_node = self.data['service_stations'].index[np.argmin(
-                        [self.data['travel_distance'][customer_dest][self.data['service_stations'].loc[ss].NodeID]
-                         + self.data['travel_distance'][self.data['service_stations'].loc[ss].NodeID][next_cust]
-                         for ss in self.data['service_stations'].index])]
-                else:
-                    ss_node = self.data['service_stations'].index[np.argmin([self.data['travel_distance'][customer_dest][self.data['service_stations'].loc[ss].NodeID]
-                         for ss in self.data['service_stations'].index])]
-                X[i][j] = ss_node
 
             assert sum(X[i] == 0) == (self.data['n_vehicles'] - 1)
         return X
-
-# class OrderByTimeSample(Sampling):
-#     def __init__(self, data):
-#         super().__init__()
-#         self.data = data
-#
-#     def _do(self, problem, n_samples, **kwargs):
-#         chromosome_len = len(self.data['demand']) + self.data['n_vehicles'] - 1
-#         X = np.full((n_samples, chromosome_len), 0, dtype=np.int)
-#         for i in range(n_samples):
-#             chromosome = list(self.data['demand'].index) + [0] * (self.data['n_vehicles'] - 1)
-#             random.shuffle(chromosome)
-#             route_indices = split_at_delimiter(chromosome, return_idx=True)
-#             for route_index in route_indices:
-#                 if route_index[0] == route_index[1]:
-#                     continue
-#                 veh_route = chromosome[route_index[0]: route_index[1]]
-#                 customers = self.data['demand'].sort_values('TimeWindow').index
-#                 chromosome[route_index[0]: route_index[1]] = customers[customers.isin(veh_route)]
-#             X[i] = np.array(chromosome)
-#             assert sum(X[i] == 0) == (self.data['n_vehicles'] - 1)
-#         return X
