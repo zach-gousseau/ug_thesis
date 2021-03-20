@@ -13,6 +13,7 @@ class Algorithm:
     def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation):
         xls = pd.ExcelFile(r'data/FictitiousData.xlsx')
         self.demand = pd.read_excel(xls, 'CustomerDemand', header=0, index_col='CustomerID')
+        self.demand.index = [c + 400 for c in self.demand.index]
         self.service_stations = pd.read_excel(xls, 'ServiceStations', header=0, index_col='ID')
         self.service_stations.index = [s + 500 for s in self.service_stations.index]
         self.bus_schedule = pd.read_excel(xls, 'PublicTransit', header=0)  # Bus schedule
@@ -54,7 +55,7 @@ class Algorithm:
             sampling=sampling(data=self.data),
             crossover=crossover(data=self.data),
             mutation=mutation(data=self.data),
-            eliminate_duplicates=True,
+            eliminate_duplicates=False,
         )
 
         algorithm.setup(problem(data=self.data), termination=termination, seed=1, save_history=True, pf=True)

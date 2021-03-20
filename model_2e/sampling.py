@@ -5,54 +5,75 @@ import copy
 from pymoo.model.sampling import Sampling
 from utils import *
 
+
 class RandomSample(Sampling):
     def __init__(self, data):
         super().__init__()
         self.data = data
 
     def _do(self, problem, n_samples, **kwargs):
-        X = np.full((n_samples, 1), 0, dtype=np.int)
-        veh_assignment = {ss_id: [] for ss_id in self.data['service_stations'].index}
-
+        X = np.full((n_samples, 1), 0, dtype=np.object)
         for i in range(n_samples):
+
+            veh_assignment = {ss_id: [] for ss_id in self.data['service_stations'].index}
+            # veh_assignment_after_bus = {}
+            bus_riders = {}
+            ss_assignment = {}
+
             for customer in self.data['demand'].index:
-                ss_choice = random.choice(self.data['service_stations'].index)
-                veh_assignment[ss_choice] = customer
-                if random.random > 0.2:
-                    bus_choice_on = random.choice(self.data['bus_stops'])
-                    for bus in self.data['bus_assignment']:
-                        if bus_choice_on in self.data['bus_assignment'][bus]:
-                            bus_choice_off = self.data['bus_assignment'][bus]
-                            while bus_choice_off == bus_choice_on:
-                                bus_choice_off = self.data['bus_assignment'][bus]
-            # TODO
+                veh_choice = random.choice(self.data['service_stations'].index)
+                veh_assignment[veh_choice].append(customer)
+                if random.random() < 0.2:
+                    org_ss_choice = random.choice(self.data['service_stations'].index)
+                    dst_ss_choice = random.choice(self.data['service_stations'].index)
+                    veh_choice_after_bus = random.choice(self.data['service_stations'].index)
+                    bus_choice = random.choice(list(self.data['bus_assignment'].keys()))
+                    bus_choice_on = random.choice(self.data['bus_assignment'][bus_choice])
+                    bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])
+                    while bus_choice_off == bus_choice_on:
+                        bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])
+                    bus_riders[customer] = {
+                        'org_ss': org_ss_choice,
+                        'org_veh': veh_choice,
+                        'on': bus_choice_on,
+                        'off': bus_choice_off,
+                        'dst_ss': dst_ss_choice,
+                        'dst_veh': veh_choice_after_bus,
+                    }
+                    veh_assignment[veh_choice_after_bus].append(customer)
+                else:
+                    ss_choice = random.choice(self.data['service_stations'].index)
+                    ss_assignment[customer] = ss_choice
+
+            chromosome = []
             for veh in veh_assignment:
+                if chromosome:
+                    chromosome.append(0)
+                customers = veh_assignment[veh]
+                for customer in customers:
+                    if (customer in bus_riders) and (bus_riders[customer]['org_veh'] == veh):
+                        # Origin drop off at bus stop
+                        chromosome.append(customer)  # Cust
+                        chromosome.append(bus_riders[customer]['on'])  # Bus on
+                        chromosome.append(bus_riders[customer]['org_ss'])  # SS
+                    elif (customer in bus_riders) and (bus_riders[customer]['dst_veh'] == veh):
+                        # Destination pick up from bus stop
+                        chromosome.append(customer)  # Cust
+                        chromosome.append(bus_riders[customer]['dst_ss'])  # SS
+                        chromosome.append(bus_riders[customer]['off'])  # Bus off
+                    else:
+                        chromosome.append(customer)  # Cust
+                        chromosome.append(-1)  # No bus
+                        chromosome.append(ss_assignment[customer])  # SS
 
-            # Get vehicle delimiters
-            veh_delimiter = random.randint(0, len(self.data['demand']))
-            veh_delimiters = []
-            for _ in range(self.data['n_vehicles'] - 1):
-                while veh_delimiter in veh_delimiters:
-                    veh_delimiter = random.randint(0, len(self.data['demand']))
-                veh_delimiters.append(veh_delimiter)
+            chromosome = np.array(chromosome)
 
-            customers = copy.deepcopy(list(self.data['demand'].index))
-            # service_stations = copy.deepcopy(list(self.data['service_stations'].index))
-            random.shuffle(customers)
-
-            count, offset, j = 0, 0, 0
-            while j < chromosome_len:
-                if count in veh_delimiters:
-                    j += 1
-                    count += 1
-                    continue
-                X[i][j + offset] = customers.pop()
-                X[i][j + offset + 1] = self.data['service_stations'].index[random.randint(0, len(self.data['service_stations'])) - 1]
-                count += 1
-                j += 2
-            assert sum(X[i] == 0) == (self.data['n_vehicles'] - 1)
+            # Checks
+            customers_in_chromosome = chromosome[np.logical_and(chromosome > 400, chromosome < 500)]
+            for customer in self.data['demand'].index:
+                assert customer in customers_in_chromosome
+            X[i, 0] = chromosome
         return X
-
 
 
 class SmartSortSample(Sampling):
@@ -68,19 +89,20 @@ class SmartSortSample(Sampling):
 
             # Find total distances from SS -> Customer -> Destination for each SS
             ss_distances = np.array(
-                [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst] for ss in self.data['service_stations'].NodeID]
+                [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst] for ss in
+                 self.data['service_stations'].NodeID]
             )
 
             # Sort the distances and choose a (weighted) random choice of the closest 2 SS.
             sorted_ss = self.data['service_stations'].index[ss_distances.argsort()]
             sorted_ss = sorted_ss[:2]
             weights = [2, 1]
-            weights = [weight/sum(weights) for weight in weights]
+            weights = [weight / sum(weights) for weight in weights]
             ss_id = np.random.choice(sorted_ss, p=weights)
 
             # ss_id = self.data['service_stations'].index[np.argmin(
-                # [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst]
-                #  for ss in self.data['service_stations'].NodeID])]
+            # [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst]
+            #  for ss in self.data['service_stations'].NodeID])]
 
             veh_assignment[ss_id].append(customer)
         return veh_assignment

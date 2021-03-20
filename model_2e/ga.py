@@ -2,10 +2,10 @@ from pymoo.performance_indicator.hv import Hypervolume
 
 import pandas as pd
 
-from model_1e_ss.crossover import *
-from model_1e_ss.mutation import *
-from model_1e_ss.sampling import *
-from model_1e_ss.problem import *
+from model_2e.crossover import *
+from model_2e.mutation import *
+from model_2e.sampling import *
+from model_2e.problem import *
 from algorithm import Algorithm
 from utils import *
 
@@ -81,7 +81,7 @@ class BasicGA(Algorithm):
 
     def plot_all_timespace(self):
         for i in range(len(self.result.X)):
-            self.plot_timespace(idx=i, fn=f'model_1e_ss/plots/timespace/s{i}.jpg')
+            self.plot_timespace(idx=i, fn=f'model_2e/plots/timespace/s{i}.jpg')
 
     def plot_timespace(self, X=None, idx=None, fn=''):
         if idx is not None:
@@ -123,7 +123,7 @@ class BasicGA(Algorithm):
         ax.set_xlabel('Date/Time')
         ax.set_ylabel('Distance (NOT TO SCALE)')
         if fn == '':
-            fig.savefig('model_1e_ss/plots/demand.jpg')
+            fig.savefig('model_2e/plots/demand.jpg')
         else:
             make_dir(file_path=fn)
             fig.savefig(fn)
@@ -147,12 +147,12 @@ class BasicGA(Algorithm):
         ax.set_title("Convergence")
         ax.set_xlabel("Function Evaluations")
         ax.set_ylabel("Hypervolume")
-        fig.savefig('model_1e_ss/plots/convergence.jpg')
+        fig.savefig('model_2e/plots/convergence.jpg')
         plt.close(fig)
 
 
 if __name__ == '__main__':
-    compare = True
+    compare = False
     if compare:
         algos, names = [], []
         samplings = {'S(SS)': SmartSortSample, 'S(R)': RandomSample}
@@ -200,17 +200,17 @@ if __name__ == '__main__':
         ax.set_xlabel("Function Evaluations")
         ax.set_ylabel("Hypervolume")
         ax.legend()
-        fig.savefig('model_1e_ss/plots/convergence.jpg')
+        fig.savefig('model_2e/plots/convergence.jpg')
         plt.close(fig)
     else:
         algo = BasicGA(pop_size=50,
                        n_offspring=25,
                        problem=MyProblem,
-                       sampling=SmartSortSample,
+                       sampling=RandomSample,
                        crossover=HybridCross,
                        mutation=RandomMutation,
                        )
         algo.run()
         # algo.plot_timespace(idx=-2)
-        algo.plot_all_timespace()
+        # algo.plot_all_timespace()
         algo.plot_convergence()
