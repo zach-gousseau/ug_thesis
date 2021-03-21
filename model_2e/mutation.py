@@ -9,7 +9,7 @@ class RandomMutation(Mutation):
         self.data = data
 
     def _do(self, problem, X, **kwargs):
-        if random.random() < 0.15:
+        if random.random() < 0.0:
             # for each individual
             for i in range(len(X)):
                 choice = random.randint(1, 3)
@@ -30,6 +30,7 @@ class RandomMutation(Mutation):
 
                 # for veh_route in split_at_delimiter(X[i]):
                 #     assert (len(veh_route) % 2) == 0
+
         return X
 
     def switch_customers(self, X):

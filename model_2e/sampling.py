@@ -45,33 +45,36 @@ class RandomSample(Sampling):
                     ss_choice = random.choice(self.data['service_stations'].index)
                     ss_assignment[customer] = ss_choice
 
-            chromosome = []
+            chromosome = ([], [], [], [])
             for veh in veh_assignment:
-                if chromosome:
-                    chromosome.append(0)
+                if chromosome[0]:
+                    chromosome = append_2d(chromosome, 0)
+
                 customers = veh_assignment[veh]
                 for customer in customers:
                     if (customer in bus_riders) and (bus_riders[customer]['org_veh'] == veh):
                         # Origin drop off at bus stop
-                        chromosome.append(customer)  # Cust
-                        chromosome.append(bus_riders[customer]['on'])  # Bus on
-                        chromosome.append(bus_riders[customer]['org_ss'])  # SS
+                        chromosome[0].append(customer)  # Cust
+                        chromosome[1].append(bus_riders[customer]['on'])  # Bus on
+                        chromosome[2].append(-1)  # No bus off
+                        chromosome[3].append(bus_riders[customer]['org_ss'])  # SS
                     elif (customer in bus_riders) and (bus_riders[customer]['dst_veh'] == veh):
                         # Destination pick up from bus stop
-                        chromosome.append(customer)  # Cust
-                        chromosome.append(bus_riders[customer]['dst_ss'])  # SS
-                        chromosome.append(bus_riders[customer]['off'])  # Bus off
+                        chromosome[0].append(customer)  # Cust
+                        chromosome[1].append(-1)  # No bus on
+                        chromosome[2].append(bus_riders[customer]['off'])  # Bus off
+                        chromosome[3].append(bus_riders[customer]['dst_ss'])  # SS
                     else:
-                        chromosome.append(customer)  # Cust
-                        chromosome.append(-1)  # No bus
-                        chromosome.append(ss_assignment[customer])  # SS
+                        chromosome[0].append(customer)  # Cust
+                        chromosome[1].append(-1)  # No bus
+                        chromosome[2].append(-1)  # No bus
+                        chromosome[3].append(ss_assignment[customer])  # SS
 
             chromosome = np.array(chromosome)
 
             # Checks
-            customers_in_chromosome = chromosome[np.logical_and(chromosome > 400, chromosome < 500)]
             for customer in self.data['demand'].index:
-                assert customer in customers_in_chromosome
+                assert customer in chromosome[0]
             X[i, 0] = chromosome
         return X
 

@@ -134,7 +134,7 @@ class BasicGA(Algorithm):
             raise ValueError('Set save_history to True!')
         fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
 
-        ref_point = np.array([10000, 2000, 400, 400, 10])
+        ref_point = np.array([10000, 2000, 400, 400, 10, 10])
 
         # create the performance indicator object with reference point
         metric = Hypervolume(ref_point=ref_point, normalize=False)
