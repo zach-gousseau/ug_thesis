@@ -6,6 +6,7 @@ from model_2e.crossover import *
 from model_2e.mutation import *
 from model_2e.sampling import *
 from model_2e.problem import *
+from model_2e.selection import *
 from algorithm import Algorithm
 from utils import *
 
@@ -16,8 +17,8 @@ plt.style.use('seaborn')
 
 
 class BasicGA(Algorithm):
-    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation):
-        super().__init__(pop_size, n_offspring, problem, sampling, crossover, mutation)
+    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection):
+        super().__init__(pop_size, n_offspring, problem, sampling, crossover, mutation, selection)
 
     def eval_timewindow(self, X):
         X = X[0]
@@ -140,7 +141,7 @@ class BasicGA(Algorithm):
         metric = Hypervolume(ref_point=ref_point, normalize=False)
 
         # calculate for each generation the HV metric
-        hv = [metric.calc(f) for f in algo.history['F']]
+        hv = [metric.calc(f) for f in self.history['F']]
 
         # visualze the convergence curve
         ax.plot(self.history['n_evals'], hv, '-o', markersize=4, linewidth=2)
@@ -167,6 +168,7 @@ if __name__ == '__main__':
                                    sampling=samplings[sampling],
                                    crossover=crossovers[crossover],
                                    mutation=mutations[mutation],
+                                   # selection=TournamentSelection,
                                    )
                     algo.run()
                     algos.append(algo)
@@ -209,6 +211,7 @@ if __name__ == '__main__':
                        sampling=RandomSample,
                        crossover=HybridCross,
                        mutation=RandomMutation,
+                       selection=TournamentSelection,
                        )
         algo.run()
         # algo.plot_timespace(idx=-2)

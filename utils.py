@@ -54,7 +54,10 @@ def append_2d(array, x):
             array[i].append(x)
         return array
     elif type(array) == list:
-        raise TypeError
+        array = tuple(array)
+        for i in range(len(array)):
+            array[i].append(x)
+        return list(array)
     else:
         raise TypeError
 

@@ -63,23 +63,6 @@ class MyProblem(Problem):
                         customer_org = bus_off
                         customer_dest = self.data['demand'].loc[customer]['DestinationNodeID']
 
-                        # Get bus number
-                        bus = None
-                        for bus in self.data['bus_assignment']:
-                            if bus_riders[customer]['on'] in self.data['bus_assignment']:
-                                break
-                        assert bus is not None
-
-                        # Get info on bus route
-                        next_route_mask = bus_riders[customer]['on_time'] < self.data['bus_schedule'][bus]['Time']
-                        off_idx = np.where(self.data['bus_schedule'][bus]['Nodes'][next_route_mask] == bus_riders[customer]['off'])[0][0]
-                        off_time = self.data['bus_schedule'][bus]['Times'][next_route_mask][off_idx]
-                        dropoff_time = off_time + timedelta(minutes=bus_riders[customer]['off_travel_time_to_destination'])
-                        if dropoff_time > self._get_time_window(customer, bound='end'):
-                            time_violation = (dropoff_time - self._get_time_window(customer, bound='end'))
-                            f3 += time_violation.seconds / 60
-
-
                 else:
                     # Customer is picked up from their origin and dropped off at their destination
                     customer_org = self.data['demand'].loc[customer]['OriginNodeID']
@@ -91,7 +74,7 @@ class MyProblem(Problem):
 
                 # Find time window violation
                 dropoff_time = start_time + timedelta(minutes=travel_time)
-                if customer not in bus_riders:
+                if not bus_on != -1:
                     if dropoff_time <= self._get_time_window(customer, bound='start'):
                         # slack = (self._get_time_window(customer, bound='start') - dropoff_time)
                         # f4 += slack.seconds / 60
@@ -99,17 +82,16 @@ class MyProblem(Problem):
                     elif dropoff_time > self._get_time_window(customer, bound='end'):
                         time_violation = (dropoff_time - self._get_time_window(customer, bound='end'))
                         f3 += time_violation.seconds / 60
-                else:
-                    if bus_on != -1:
-                        bus_riders[customer]['on_time'] = dropoff_time
-                    elif bus_off != -1:
-                        bus_riders[customer]['off_travel_time_to_destination'] = travel_time
-                    else:
-                        raise ValueError('Customer in bus_riders but does not have bus_on or bus_off!')
 
                 if first_cust:
                     dropoff_time = start_time
                     first_cust = False
+
+                if bus_on != -1:
+                    bus_riders[customer]['on_time'] = dropoff_time
+                elif bus_off != -1:
+                    bus_riders[customer]['off_time'] = dropoff_time
+                    # bus_riders[customer]['off_travel_time_to_destination'] = travel_time
 
                 # Add travel time and distance from customer destination to service station destination
                 travel_time += self.data['travel_time'][customer_dest][next_ss_node]
@@ -123,20 +105,30 @@ class MyProblem(Problem):
 
         # Check time window violation for bus riders
         for bus_rider in bus_riders:
-            bus = None
             for bus in self.data['bus_assignment']:
-                if bus_riders[bus_rider]['on'] in self.data['bus_assignment']:
+                if bus_riders[bus_rider]['on'] in self.data['bus_assignment'][bus]:
                     break
-            assert bus is not None
+
+            assert bus_riders[bus_rider]['on'] in self.data['bus_assignment'][bus]
+            assert bus_riders[bus_rider]['off'] in self.data['bus_assignment'][bus]
 
             next_route_mask = bus_riders[bus_rider]['on_time'] < self.data['bus_schedule'][bus]['Time']
-            off_idx = np.where(self.data['bus_schedule'][bus]['Nodes'][next_route_mask] == bus_riders[bus_rider]['off'])[0][0]
-            off_time = self.data['bus_schedule'][bus]['Times'][next_route_mask][off_idx]
-            dropoff_time = off_time + timedelta(minutes=bus_riders[bus_rider]['off_travel_time_to_destination'])
-            if dropoff_time > self._get_time_window(bus_rider, bound='end'):
-                time_violation = (dropoff_time - self._get_time_window(bus_rider, bound='end'))
-                f3 += time_violation.seconds / 60
 
+            next_day = False
+            try:
+                # Try finding next time bus stops at destination
+                off_idx = np.where(self.data['bus_schedule'][bus]['Nodes'][next_route_mask] == bus_riders[bus_rider]['off'])[0][0]
+            except IndexError:
+                # If none, customer is dropped off next day
+                next_route_mask = ~next_route_mask
+                off_idx = np.where(self.data['bus_schedule'][bus]['Nodes'][next_route_mask] == bus_riders[bus_rider]['off'])[0][0]
+                next_day = True
+
+            off_time = self.data['bus_schedule'][bus]['Time'][next_route_mask][off_idx] + timedelta(days=next_day)
+
+            if off_time > bus_riders[bus_rider]['off_time']:
+                bus_schedule_violation = off_time - bus_riders[bus_rider]['off_time']
+                f7 += bus_schedule_violation.seconds / 60
 
         out["F"] = np.array([f1, f2, f3, f5, f6, f7], dtype=np.float)
 

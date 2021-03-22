@@ -33,12 +33,14 @@ class RandomSample(Sampling):
                     while bus_choice_off == bus_choice_on:
                         bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])
                     bus_riders[customer] = {
-                        'org_ss': org_ss_choice,
-                        'org_veh': veh_choice,
-                        'on': bus_choice_on,
-                        'off': bus_choice_off,
-                        'dst_ss': dst_ss_choice,
-                        'dst_veh': veh_choice_after_bus,
+                        'org_ss': org_ss_choice,  # Origin SS
+                        'org_veh': veh_choice,  # Origin vehicle which drops customer off at bus station
+                        'on': bus_choice_on,  # Bus stop choice for onboarding
+                        'off': bus_choice_off,  # Bus stop choice for offboarding
+                        'dst_ss': dst_ss_choice,  # Destination SS
+                        'dst_veh': veh_choice_after_bus,  # Destination vehicle which drops customer off at their destation
+                        'off_done': False,  # Helper variable for building chromosome
+                        'on_done': False,  # Helper variable for building chromosome
                     }
                     veh_assignment[veh_choice_after_bus].append(customer)
                 else:
@@ -52,18 +54,27 @@ class RandomSample(Sampling):
 
                 customers = veh_assignment[veh]
                 for customer in customers:
-                    if (customer in bus_riders) and (bus_riders[customer]['org_veh'] == veh):
-                        # Origin drop off at bus stop
-                        chromosome[0].append(customer)  # Cust
-                        chromosome[1].append(bus_riders[customer]['on'])  # Bus on
-                        chromosome[2].append(-1)  # No bus off
-                        chromosome[3].append(bus_riders[customer]['org_ss'])  # SS
-                    elif (customer in bus_riders) and (bus_riders[customer]['dst_veh'] == veh):
-                        # Destination pick up from bus stop
-                        chromosome[0].append(customer)  # Cust
-                        chromosome[1].append(-1)  # No bus on
-                        chromosome[2].append(bus_riders[customer]['off'])  # Bus off
-                        chromosome[3].append(bus_riders[customer]['dst_ss'])  # SS
+
+                    if (customer in bus_riders) and not (bus_riders[customer]['off_done'] and bus_riders[customer]['on_done']):
+
+                        if bus_riders[customer]['org_veh'] == veh and not bus_riders[customer]['on_done']:
+                            # Origin drop off at bus stop
+                            chromosome[0].append(customer)  # Cust
+                            chromosome[1].append(bus_riders[customer]['on'])  # Bus on
+                            chromosome[2].append(-1)  # No bus off
+                            chromosome[3].append(bus_riders[customer]['org_ss'])  # SS
+
+                            bus_riders[customer]['on_done'] = True
+
+                        elif bus_riders[customer]['dst_veh'] == veh:
+                            # Destination pick up from bus stop
+                            chromosome[0].append(customer)  # Cust
+                            chromosome[1].append(-1)  # No bus on
+                            chromosome[2].append(bus_riders[customer]['off'])  # Bus off
+                            chromosome[3].append(bus_riders[customer]['dst_ss'])  # SS
+
+                            bus_riders[customer]['off_done'] = True
+
                     else:
                         chromosome[0].append(customer)  # Cust
                         chromosome[1].append(-1)  # No bus
@@ -74,8 +85,10 @@ class RandomSample(Sampling):
 
             # Checks
             for customer in self.data['demand'].index:
+                assert len(np.where(chromosome[0] == customer)[0]) <= 2
                 assert customer in chromosome[0]
             X[i, 0] = chromosome
+
         return X
 
 

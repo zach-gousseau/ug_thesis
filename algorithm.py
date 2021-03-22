@@ -10,7 +10,7 @@ plt.style.use('seaborn')
 
 
 class Algorithm:
-    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation):
+    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection):
         xls = pd.ExcelFile(r'data/FictitiousData.xlsx')
         self.demand = pd.read_excel(xls, 'CustomerDemand', header=0, index_col='CustomerID')
         self.demand.index = [c + 400 for c in self.demand.index]
@@ -52,14 +52,25 @@ class Algorithm:
 
         # termination = get_termination("n_gen", ngen)
         termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=200)
-        algorithm = NSGA2(
-            pop_size=pop_size,
-            n_offsprings=n_offspring,
-            sampling=sampling(data=self.data),
-            crossover=crossover(data=self.data),
-            mutation=mutation(data=self.data),
-            eliminate_duplicates=False,
-        )
+        if selection is not None:
+            algorithm = NSGA2(
+                pop_size=pop_size,
+                n_offsprings=n_offspring,
+                sampling=sampling(data=self.data),
+                crossover=crossover(data=self.data),
+                mutation=mutation(data=self.data),
+                selection=selection,
+                eliminate_duplicates=False,
+            )
+        else:
+            algorithm = NSGA2(
+                pop_size=pop_size,
+                n_offsprings=n_offspring,
+                sampling=sampling(data=self.data),
+                crossover=crossover(data=self.data),
+                mutation=mutation(data=self.data),
+                eliminate_duplicates=False,
+            )
 
         algorithm.setup(problem(data=self.data), termination=termination, seed=1, save_history=True, pf=True)
         self.algorithm = algorithm
@@ -74,7 +85,7 @@ class Algorithm:
             if save_history:
                 self.history['F'].append(self.algorithm.opt.get('F').min(axis=0))
                 self.history['n_evals'].append(self.algorithm.evaluator.n_eval)
-            print(f"gen: {self.algorithm.n_gen} n_nds: {len(self.algorithm.opt)} constr: {self.algorithm.opt.get('CV').min()} ideal: {self.algorithm.opt.get('F').min(axis=0)}")
+            print(f"GEN#{self.algorithm.n_gen} - Best: {self.algorithm.opt.get('F').min(axis=0).astype(int)}")
 
         self.result = self.algorithm.result()  # Final results
 
