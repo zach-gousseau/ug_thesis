@@ -6,7 +6,8 @@ class MyProblem(Problem):
         self.data = data
         chromosome_len = 1
         super().__init__(n_var=chromosome_len,  # Number of genes
-                         n_obj=6,  # Number of objectives
+                         n_obj=5,  # Number of objectives
+                         n_constr=1,
                          # type_var=np.object,
                          elementwise_evaluation=True,
                          )
@@ -19,7 +20,8 @@ class MyProblem(Problem):
         # f4 = 0  # Slack time
         f5 = 0  # Number of vehicles
         f6 = 0  # Number of people on buses
-        f7 = 0  # Bus timing violation
+
+        g1 = 0  # Bus timing violation
 
         bus_riders = {}
 
@@ -128,9 +130,10 @@ class MyProblem(Problem):
 
             if off_time > bus_riders[bus_rider]['off_time']:
                 bus_schedule_violation = off_time - bus_riders[bus_rider]['off_time']
-                f7 += bus_schedule_violation.seconds / 60
+                g1 += bus_schedule_violation.seconds / 60
 
-        out["F"] = np.array([f1, f2, f3, f5, f6, f7], dtype=np.float)
+        out["F"] = np.array([f1, f2, f3, f5, f6], dtype=np.float)
+        out["G"] = np.array([g1], dtype=np.float)
 
     def _get_time_window(self, customer=None, bound='start'):
         if bound == 'start':

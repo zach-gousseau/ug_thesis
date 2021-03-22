@@ -5,13 +5,14 @@ from utils import *
 
 import pandas as pd
 import matplotlib.pyplot as plt
+
 plt.ioff()
 plt.style.use('seaborn')
 
 
 class Algorithm:
     def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection):
-        xls = pd.ExcelFile(r'data/FictitiousData.xlsx')
+        xls = pd.ExcelFile(r'data/FictitiousDataMed.xlsx')
         self.demand = pd.read_excel(xls, 'CustomerDemand', header=0, index_col='CustomerID')
         self.demand.index = [c + 400 for c in self.demand.index]
         self.service_stations = pd.read_excel(xls, 'ServiceStations', header=0, index_col='ID')
@@ -52,25 +53,17 @@ class Algorithm:
 
         # termination = get_termination("n_gen", ngen)
         termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=200)
-        if selection is not None:
-            algorithm = NSGA2(
-                pop_size=pop_size,
-                n_offsprings=n_offspring,
-                sampling=sampling(data=self.data),
-                crossover=crossover(data=self.data),
-                mutation=mutation(data=self.data),
-                selection=selection,
-                eliminate_duplicates=False,
-            )
-        else:
-            algorithm = NSGA2(
-                pop_size=pop_size,
-                n_offsprings=n_offspring,
-                sampling=sampling(data=self.data),
-                crossover=crossover(data=self.data),
-                mutation=mutation(data=self.data),
-                eliminate_duplicates=False,
-            )
+
+        kwargs = {'pop_size': pop_size,
+                  'n_offsprings': n_offspring,
+                  'sampling': sampling(data=self.data),
+                  'crossover': crossover(data=self.data),
+                  'mutation': mutation(data=self.data),
+                  'selection': selection,
+                  'eliminate_duplicates': False, }
+        kwargs = {k: kwargs[k] for k in kwargs if kwargs[k] is not None}
+
+        algorithm = NSGA2(**kwargs)
 
         algorithm.setup(problem(data=self.data), termination=termination, seed=1, save_history=True, pf=True)
         self.algorithm = algorithm
@@ -85,7 +78,8 @@ class Algorithm:
             if save_history:
                 self.history['F'].append(self.algorithm.opt.get('F').min(axis=0))
                 self.history['n_evals'].append(self.algorithm.evaluator.n_eval)
-            print(f"GEN#{self.algorithm.n_gen} - Best: {self.algorithm.opt.get('F').min(axis=0).astype(int)}")
+            print(
+                f'G.{self.algorithm.n_gen} - Best: {self.algorithm.opt.get("F").min(axis=0).astype(int)} - Number of NDS: {len(self.algorithm.opt)}')
 
         self.result = self.algorithm.result()  # Final results
 

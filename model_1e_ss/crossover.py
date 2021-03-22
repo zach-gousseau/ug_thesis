@@ -55,7 +55,7 @@ class HybridCross(Crossover):
                     assert (len(veh_route) % 2) == 0
 
 
-            Y[0, k], Y[1, k] = a, b
+            Y[0, k], Y[1, k] = a_new, b_new
         return Y
 
     def cross_routes(self, a, b):
@@ -142,7 +142,7 @@ class CrossRoutes(Crossover):
                     assert (len(veh_route) % 2) == 0
 
 
-            Y[0, k], Y[1, k] = a, b
+            Y[0, k], Y[1, k] = a_new, b_new
         return Y
 
 

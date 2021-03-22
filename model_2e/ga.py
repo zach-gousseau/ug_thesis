@@ -136,6 +136,7 @@ class BasicGA(Algorithm):
         fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
 
         ref_point = np.array([10000, 2000, 400, 400, 10, 10])
+        # ref_point = np.array([10000, 2000, 400, 10])
 
         # create the performance indicator object with reference point
         metric = Hypervolume(ref_point=ref_point, normalize=False)
@@ -205,15 +206,26 @@ if __name__ == '__main__':
         fig.savefig('model_2e/plots/convergence.jpg')
         plt.close(fig)
     else:
-        algo = BasicGA(pop_size=50,
-                       n_offspring=25,
+        algo = BasicGA(pop_size=200,
+                       n_offspring=50,  # Default (None) uses the population size
                        problem=MyProblem,
                        sampling=RandomSample,
                        crossover=HybridCross,
                        mutation=RandomMutation,
-                       selection=TournamentSelection,
+                       selection=None,
                        )
         algo.run()
+
+        if int(min([f[2] for f in algo.result.F])) == 0:
+            print('Found solution satisfying all customers')
+            for f in algo.result.F:
+                if int(f[2]) == 0:
+                    print(f)
+
+        else:
+            print(f'Did not find solution satisfying all customers. Best solution violates time windows by '
+                  f'a total of {int(min([f[2] for f in algo.result.F]))} minutes')
+
         # algo.plot_timespace(idx=-2)
         # algo.plot_all_timespace()
         algo.plot_convergence()

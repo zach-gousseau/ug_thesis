@@ -93,7 +93,7 @@ class SmartSortSample(Sampling):
                         next_cust = veh_assignment[veh][k + 1]
                         ss_id = self.data['service_stations'].index[np.argmin(
                             [self.data['travel_distance'][customer_dest][self.data['service_stations'].loc[ss].NodeID]
-                             + self.data['travel_distance'][self.data['service_stations'].loc[ss].NodeID][next_cust]
+                             + self.data['travel_distance'][self.data['service_stations'].loc[ss].NodeID][self.data['demand'].loc[next_cust]['OriginNodeID']]
                              for ss in self.data['service_stations'].index])]
                     else:
                         ss_id = self.data['service_stations'].index[np.argmin(

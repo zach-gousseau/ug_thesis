@@ -10,10 +10,10 @@ class RandomMutation(Mutation):
         self.data = data
 
     def _do(self, problem, X, **kwargs):
-        if random.random() < 0.2:
+        if random.random() < 0.05:
             # for each individual
             for i in range(len(X)):
-                choice = random.randint(1, 3)
+                choice = random.randint(1, 2)
                 if choice == 1:
                     # Switch two customers
                     X[i] = self.switch_customers(X[i])
