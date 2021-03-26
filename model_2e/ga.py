@@ -19,6 +19,8 @@ plt.style.use('seaborn')
 class BasicGA(Algorithm):
     def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection):
         super().__init__(pop_size, n_offspring, problem, sampling, crossover, mutation, selection)
+        self.plot_dir = 'model_2e/plots/'
+        make_dir(file_path=self.plot_dir)
 
     def eval_timewindow(self, X):
         X = X[0]
@@ -82,7 +84,7 @@ class BasicGA(Algorithm):
 
     def plot_all_timespace(self):
         for i in range(len(self.result.X)):
-            self.plot_timespace(idx=i, fn=f'model_2e/plots/timespace/s{i}.jpg')
+            self.plot_timespace(idx=i, fn=os.path.join(self.plot_dir, f'timespace/s{i}.jpg'))
 
     def plot_timespace(self, X=None, idx=None, fn=''):
         if idx is not None:
@@ -124,7 +126,7 @@ class BasicGA(Algorithm):
         ax.set_xlabel('Date/Time')
         ax.set_ylabel('Distance (NOT TO SCALE)')
         if fn == '':
-            fig.savefig('model_2e/plots/demand.jpg')
+            fig.savefig(os.path.join(self.plot_dir, 'demand.jpg'))
         else:
             make_dir(file_path=fn)
             fig.savefig(fn)
@@ -135,8 +137,8 @@ class BasicGA(Algorithm):
             raise ValueError('Set save_history to True!')
         fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
 
-        ref_point = np.array([10000, 2000, 400, 400, 10, 10])
-        # ref_point = np.array([10000, 2000, 400, 10])
+        ref_point = np.array([10000, 2000, 400])
+        # ref_point = np.array([10000, 2000, 400, 400, 10])
 
         # create the performance indicator object with reference point
         metric = Hypervolume(ref_point=ref_point, normalize=False)
@@ -149,7 +151,7 @@ class BasicGA(Algorithm):
         ax.set_title("Convergence")
         ax.set_xlabel("Function Evaluations")
         ax.set_ylabel("Hypervolume")
-        fig.savefig('model_2e/plots/convergence.jpg')
+        fig.savefig(os.path.join(self.plot_dir, 'convergence.jpg'))
         plt.close(fig)
 
 
@@ -207,14 +209,15 @@ if __name__ == '__main__':
         plt.close(fig)
     else:
         algo = BasicGA(pop_size=200,
-                       n_offspring=50,  # Default (None) uses the population size
+                       n_offspring=200,  # Default (None) uses the population size
                        problem=MyProblem,
-                       sampling=RandomSample,
+                       sampling=BetterSample,
                        crossover=HybridCross,
                        mutation=RandomMutation,
                        selection=None,
                        )
-        algo.run()
+
+        algo.run(reduce_population_size_to=100)
 
         if int(min([f[2] for f in algo.result.F])) == 0:
             print('Found solution satisfying all customers')

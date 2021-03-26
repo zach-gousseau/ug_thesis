@@ -1,14 +1,15 @@
 from pymoo.model.problem import Problem
+from functools import lru_cache
 from utils import *
 
 class MyProblem(Problem):
     def __init__(self, data):
         self.data = data
+        self.allowable_waiting = 60
         chromosome_len = 1
         super().__init__(n_var=chromosome_len,  # Number of genes
                          n_obj=5,  # Number of objectives
-                         n_constr=1,
-                         # type_var=np.object,
+                         n_constr=2,
                          elementwise_evaluation=True,
                          )
 
@@ -18,16 +19,17 @@ class MyProblem(Problem):
         f2 = 0  # Travel time
         f3 = 0  # Time window violation
         # f4 = 0  # Slack time
-        f5 = 0  # Number of vehicles
-        f6 = 0  # Number of people on buses
+        # f5 = 0  # Number of vehicles
+        # f6 = 0  # Number of people on buses
 
         g1 = 0  # Bus timing violation
+        g2 = 0  # Time window violation
 
         bus_riders = {}
 
         # Separate chromosome into routes by the delimiter (0)
         veh_routes = split_at_delimiter_2d(X)
-        f5 += len(veh_routes)
+        # f5 += len(veh_routes)
 
         # Loop over each route
         for veh_i, veh_route in enumerate(veh_routes):
@@ -55,7 +57,7 @@ class MyProblem(Problem):
                         bus_riders[customer]['on'] = bus_on
                         customer_org = self.data['demand'].loc[customer]['OriginNodeID']
                         customer_dest = bus_on
-                        f6 += 1
+                        # f6 += 1
 
                     elif bus_off != -1:
                         # Customer is picked up from a bus stop and dropped off at their destination
@@ -77,12 +79,15 @@ class MyProblem(Problem):
                 # Find time window violation
                 dropoff_time = start_time + timedelta(minutes=travel_time)
                 if not bus_on != -1:
-                    if dropoff_time <= self._get_time_window(customer, bound='start'):
+                    tw_start = self._get_time_window(customer, bound='start')
+                    tw_end = self._get_time_window(customer, bound='end')
+                    if dropoff_time <= tw_start:
                         # slack = (self._get_time_window(customer, bound='start') - dropoff_time)
                         # f4 += slack.seconds / 60
-                        dropoff_time = self._get_time_window(customer, bound='start')
-                    elif dropoff_time > self._get_time_window(customer, bound='end'):
-                        time_violation = (dropoff_time - self._get_time_window(customer, bound='end'))
+                        dropoff_time = tw_start
+                    elif dropoff_time > tw_end:
+                        time_violation = (dropoff_time - tw_end)
+                        g2 += max(time_violation.seconds / 60 - self.allowable_waiting, 0)
                         f3 += time_violation.seconds / 60
 
                 if first_cust:
@@ -107,9 +112,8 @@ class MyProblem(Problem):
 
         # Check time window violation for bus riders
         for bus_rider in bus_riders:
-            for bus in self.data['bus_assignment']:
-                if bus_riders[bus_rider]['on'] in self.data['bus_assignment'][bus]:
-                    break
+
+            bus = self.data['bus_stop_assignment'][bus_riders[bus_rider]['on']]
 
             assert bus_riders[bus_rider]['on'] in self.data['bus_assignment'][bus]
             assert bus_riders[bus_rider]['off'] in self.data['bus_assignment'][bus]
@@ -132,9 +136,10 @@ class MyProblem(Problem):
                 bus_schedule_violation = off_time - bus_riders[bus_rider]['off_time']
                 g1 += bus_schedule_violation.seconds / 60
 
-        out["F"] = np.array([f1, f2, f3, f5, f6], dtype=np.float)
-        out["G"] = np.array([g1], dtype=np.float)
+        out["F"] = np.array([f1, f2, f3], dtype=np.double)
+        out["G"] = np.array([g1, g2], dtype=np.double)
 
+    @lru_cache
     def _get_time_window(self, customer=None, bound='start'):
         if bound == 'start':
             bound = 'StartTime'
@@ -143,4 +148,4 @@ class MyProblem(Problem):
         else:
             raise ValueError('Bound must be either start or end.')
         if customer is not None:
-            return self.data['time_windows'].loc[self.data['demand'].loc[customer]['TimeWindow']][bound]
+            return self.data['demand'].loc[customer][bound]
