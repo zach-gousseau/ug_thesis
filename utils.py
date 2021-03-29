@@ -1,6 +1,8 @@
 from datetime import datetime, date, timedelta
 from itertools import tee, chain
 import numpy as np
+import geopandas as gpd
+import pandas as pd
 import os
 
 def subtract_times(t2, t1, day_delta='auto'):
@@ -71,11 +73,22 @@ def join_with_delimiter_2d(x, delimiter=0):
     return [[num for sublist in xxx for num in list(sublist) + [delimiter]][:-1] for xxx in xx]
 
 
-
-
 def make_dir(file_path='', dir_path=''):
     if file_path != '':
         dir_path = os.path.dirname(file_path)
 
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
+
+def create_od(shp_fn):
+    shp = gpd.read_file(shp_fn)
+    od_dict = {}
+    for _, loc_o in shp.iterrows():
+        o = loc_o.ID
+        o_geo = loc_o.geometry
+        od_dict[o] = {}
+        for _, loc_d in shp.iterrows():
+            d = loc_d.ID
+            d_geo =  loc_d.geometry
+            od_dict[o][d] = int(o_geo.distance(d_geo))
+    return od_dict

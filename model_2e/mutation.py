@@ -12,9 +12,9 @@ class RandomMutation(Mutation):
 
     def _do(self, problem, X, **kwargs):
         for i in range(len(X)):
-            if random.random() < 1:
+            if random.random() < 0.1:
                 # for each individual
-                choice = random.randint(0, 3)
+                choice = random.randint(1, 3)
                 if choice == 1:
                     # Switch two customers
                     X[i] = self.switch_customers(X[i])

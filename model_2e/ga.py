@@ -40,8 +40,6 @@ class BasicGA(Algorithm):
                 customer = veh_route[i]  # Customer being serviced
                 travel_time = 0  # Travel time of the one route
 
-
-
                 if veh_route[i + 2] in self.bus_stops:
                     # Customer is dropped off at a bus stop
                     customer_org = self.data['demand'].loc[customer]['OriginNodeID']
@@ -208,8 +206,8 @@ if __name__ == '__main__':
         fig.savefig('model_2e/plots/convergence.jpg')
         plt.close(fig)
     else:
-        algo = BasicGA(pop_size=200,
-                       n_offspring=200,  # Default (None) uses the population size
+        algo = BasicGA(pop_size=300,
+                       n_offspring=300,  # Default (None) uses the population size
                        problem=MyProblem,
                        sampling=BetterSample,
                        crossover=HybridCross,
@@ -232,3 +230,8 @@ if __name__ == '__main__':
         # algo.plot_timespace(idx=-2)
         # algo.plot_all_timespace()
         algo.plot_convergence()
+
+        # Find solutions with bus riders, if any.
+        for x in algo.result.X:
+            if len(set(x[0][0][np.logical_or(x[0][1] > 0, x[0][2] > 0)])) > 0:
+                print(x)

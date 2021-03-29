@@ -16,7 +16,7 @@ class RandomSample(Sampling):
         bus_riders = {}
         ss_assignment = {}
 
-        for customer in self.data['demand'].index:
+        for customer in self.data['customers']:
             veh_choice = random.choice(self.data['service_stations'].index)
             veh_assignment[veh_choice].append(customer)
             if random.random() < 0.2:
@@ -81,6 +81,7 @@ class RandomSample(Sampling):
                     chromosome[3].append(ss_assignment[customer])  # SS
 
         return np.array(chromosome)
+
     def _do(self, problem, n_samples, **kwargs):
         X = np.full((n_samples, 1), 0, dtype=np.object)
         for i in range(n_samples):
@@ -92,11 +93,10 @@ class RandomSample(Sampling):
             chromosome = self.build_chromosome(veh_assignment, bus_riders, ss_assignment)
 
             # Checks
-            for customer in self.data['demand'].index:
+            for customer in self.data['customers']:
                 assert len(np.where(chromosome[0] == customer)[0]) <= 2
                 assert customer in chromosome[0]
             X[i, 0] = chromosome
-
         return X
 
 
@@ -107,9 +107,9 @@ class BetterSample(Sampling):
 
     def cluster(self):
         veh_assignment = {ss_id: [] for ss_id in self.data['service_stations'].index}
-        for customer in self.data['demand'].index:
-            org = self.data['demand'].loc[customer]['OriginNodeID']
-            dst = self.data['demand'].loc[customer]['DestinationNodeID']
+        for customer in self.data['customers']:
+            org = self.data['demand']['OriginNodeID'][customer]
+            dst = self.data['demand']['DestinationNodeID'][customer]
 
             # Find total distances from SS -> Customer -> Destination for each SS
             ss_distances = np.array(
@@ -162,9 +162,9 @@ class BetterSample(Sampling):
 
         largest_distance = max([max([dic[node] for node in self.data['travel_distance']]) for dic in self.data['travel_distance'].values()])
 
-        for customer in self.data['demand'].index:
-            org = self.data['demand'].loc[customer]['OriginNodeID']
-            dst = self.data['demand'].loc[customer]['DestinationNodeID']
+        for customer in self.data['customers']:
+            org = self.data['demand']['OriginNodeID'][customer]
+            dst = self.data['demand']['DestinationNodeID'][customer]
 
             # Find total distances from SS -> Customer -> Destination for each SS
             ss_distances = np.array(
@@ -263,9 +263,8 @@ class BetterSample(Sampling):
             chromosome = self.build_chromosome(veh_assignment, bus_riders, ss_assignment)
 
             # Checks
-            for customer in self.data['demand'].index:
+            for customer in self.data['customers']:
                 assert len(np.where(chromosome[0] == customer)[0]) <= 2
                 assert customer in chromosome[0]
             X[i, 0] = chromosome
-
         return X

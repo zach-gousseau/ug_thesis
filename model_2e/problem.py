@@ -5,7 +5,7 @@ from utils import *
 class MyProblem(Problem):
     def __init__(self, data):
         self.data = data
-        self.allowable_waiting = 60
+        self.allowable_waiting = 15
         chromosome_len = 1
         super().__init__(n_var=chromosome_len,  # Number of genes
                          n_obj=5,  # Number of objectives
@@ -20,7 +20,7 @@ class MyProblem(Problem):
         f3 = 0  # Time window violation
         # f4 = 0  # Slack time
         # f5 = 0  # Number of vehicles
-        # f6 = 0  # Number of people on buses
+        f6 = 1  # Number of people on buses
 
         g1 = 0  # Bus timing violation
         g2 = 0  # Time window violation
@@ -55,9 +55,9 @@ class MyProblem(Problem):
                         if customer not in bus_riders:
                             bus_riders[customer] = {}
                         bus_riders[customer]['on'] = bus_on
-                        customer_org = self.data['demand'].loc[customer]['OriginNodeID']
+                        customer_org = self.data['demand']['OriginNodeID'][customer]
                         customer_dest = bus_on
-                        # f6 += 1
+                        f6 += 1
 
                     elif bus_off != -1:
                         # Customer is picked up from a bus stop and dropped off at their destination
@@ -65,12 +65,12 @@ class MyProblem(Problem):
                             bus_riders[customer] = {}
                         bus_riders[customer]['off'] = bus_off
                         customer_org = bus_off
-                        customer_dest = self.data['demand'].loc[customer]['DestinationNodeID']
+                        customer_dest = self.data['demand']['DestinationNodeID'][customer]
 
                 else:
                     # Customer is picked up from their origin and dropped off at their destination
-                    customer_org = self.data['demand'].loc[customer]['OriginNodeID']
-                    customer_dest = self.data['demand'].loc[customer]['DestinationNodeID']
+                    customer_org = self.data['demand']['OriginNodeID'][customer]
+                    customer_dest = self.data['demand']['DestinationNodeID'][customer]
 
                 # Add travel time and distance to pick up customer and drop them off
                 travel_time += (self.data['travel_time'][ss_node][customer_org] + self.data['travel_time'][customer_org][customer_dest])
@@ -148,4 +148,4 @@ class MyProblem(Problem):
         else:
             raise ValueError('Bound must be either start or end.')
         if customer is not None:
-            return self.data['demand'].loc[customer][bound]
+            return self.data['demand'][bound][customer]
