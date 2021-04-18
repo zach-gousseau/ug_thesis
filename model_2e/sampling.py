@@ -23,11 +23,10 @@ class RandomSample(Sampling):
                 org_ss_choice = random.choice(self.data['service_stations'].index)
                 dst_ss_choice = random.choice(self.data['service_stations'].index)
                 veh_choice_after_bus = random.choice(self.data['service_stations'].index)
-                bus_choice = random.choice(list(self.data['bus_assignment'].keys()))
-                bus_choice_on = random.choice(self.data['bus_assignment'][bus_choice])
-                bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])
+                bus_choice_on = random.choice(self.data['bus_stops'])
+                bus_choice_off = random.choice(self.data['bus_stops'])
                 while bus_choice_off == bus_choice_on:
-                    bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])
+                    bus_choice_off = random.choice(self.data['bus_stops'])
                 bus_riders[customer] = {
                     'org_ss': org_ss_choice,  # Origin SS
                     'org_veh': veh_choice,  # Origin vehicle which drops customer off at bus station
@@ -138,18 +137,6 @@ class BetterSample(Sampling):
         # Sort the distances and choose a (weighted) random choice of the closest 1/3 SS's.
         sorted_ss = self.data['service_stations'].index[ss_distances.argsort()]
         sorted_ss = sorted_ss[:int(np.ceil(len(sorted_ss) * proportion))]
-        weights = reversed(range(1, len(sorted_ss) + 1))
-        weights = [weight / sum(weights) for weight in weights]
-        ss_choice = np.random.choice(sorted_ss, p=weights)
-        return ss_choice
-
-    def find_nearest_ss_random(self, node, proportion=0.33):
-        # Find distances from Destination -> SS
-        ss_distances = np.array([self.data['travel_distance'][node][ss] for ss in self.data['service_stations'].NodeID])
-
-        # Sort the distances and choose a (weighted) random choice of the closest 1/3 SS's.
-        sorted_ss = self.data['service_stations'].index[ss_distances.argsort()]
-        sorted_ss = sorted_ss[:int(np.ceil(len(sorted_ss) * proportion))]
         weights = list(reversed(range(1, len(sorted_ss) + 1)))
         weights = [weight / sum(weights) for weight in weights]
         ss_choice = np.random.choice(sorted_ss, p=weights)
@@ -185,11 +172,10 @@ class BetterSample(Sampling):
             if random.random() < bus_prob:
                 org_ss_choice = self.find_nearest_ss_random(org)  # SS after being dropped off at bus stop
 
-                bus_choice = random.choice(list(self.data['bus_assignment'].keys()))  # Choice of bus
-                bus_choice_on = random.choice(self.data['bus_assignment'][bus_choice])  # Choice of bus stop to board
-                bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])   # Choice of bus stop to get off
+                bus_choice_on = random.choice(self.data['bus_stops'])  # Choice of bus stop to board
+                bus_choice_off = random.choice(self.data['bus_stops'])   # Choice of bus stop to get off
                 while bus_choice_off == bus_choice_on:
-                    bus_choice_off = random.choice(self.data['bus_assignment'][bus_choice])
+                    bus_choice_off = random.choice(self.data['bus_stops'])
 
                 veh_choice_after_bus = random.choice(self.data['service_stations'].index)  # Vehicle picking up the customer from the bus stop
                 dst_ss_choice = self.find_nearest_ss_random(dst)  # SS after being picked up from the bus stop
@@ -214,6 +200,91 @@ class BetterSample(Sampling):
 
         return veh_assignment, bus_riders, ss_assignment
 
+    def make_assignments_greedy(self):
+        bus_riders = {}
+        ss_assignment = {}
+
+        largest_distance = max([max([dic[node] for node in self.data['travel_distance']]) for dic in self.data['travel_distance'].values()])
+
+        customers = self.find_greedy_path(copy.deepcopy(self.data['customers']))
+        veh_routes = np.array_split(customers, len(self.data['service_stations']))
+        veh_assignment = {ss_id: veh_route for ss_id, veh_route in zip(self.data['service_stations'].index, veh_routes)}
+
+
+        for customer in self.data['customers']:
+            org = self.data['demand']['OriginNodeID'][customer]
+            dst = self.data['demand']['DestinationNodeID'][customer]
+
+            veh_choice = None
+            for veh in veh_assignment:
+                if customer in veh_assignment[veh]:
+                    veh_choice = veh
+                    break
+
+            assert veh_choice is not None
+
+            # Randomly select whether they take the bus based on the distance between origin and destination
+            bus_prob = (1 - self.data['travel_distance'][org][dst] / largest_distance) * 0.5  # Weighted choice by distance, scale to some max probability (0.5)
+            if random.random() < bus_prob:
+                org_ss_choice = self.find_nearest_ss_random(org)  # SS after being dropped off at bus stop
+
+                bus_choice_on = random.choice(self.data['bus_stops'])  # Choice of bus stop to board
+                bus_choice_off = random.choice(self.data['bus_stops'])   # Choice of bus stop to get off
+                while bus_choice_off == bus_choice_on:
+                    bus_choice_off = random.choice(self.data['bus_stops'])
+
+                veh_choice_after_bus = random.choice(self.data['service_stations'].index)  # Vehicle picking up the customer from the bus stop
+                dst_ss_choice = self.find_nearest_ss_random(dst)  # SS after being picked up from the bus stop
+
+                # Store choices
+                bus_riders[customer] = {
+                    'org_ss': org_ss_choice,  # Origin SS
+                    'org_veh': veh_choice,  # Origin vehicle which drops customer off at bus station
+                    'on': bus_choice_on,  # Bus stop choice for onboarding
+                    'off': bus_choice_off,  # Bus stop choice for offboarding
+                    'dst_ss': dst_ss_choice,  # Destination SS
+                    'dst_veh': veh_choice_after_bus,  # Destination vehicle which drops customer off at their destation
+                    'off_done': False,  # Helper variable for building chromosome
+                    'on_done': False,  # Helper variable for building chromosome
+                }
+
+                # Add customer to the list of customers to be picked up by the post-bus vehicle
+                idx = random.randint(0, len(veh_assignment[veh_choice_after_bus]))
+                veh_assignment[veh_choice_after_bus] = np.insert(veh_assignment[veh_choice_after_bus], idx, customer)
+            else:
+                # Choose one of the nearest SSs
+                ss_assignment[customer] = self.find_nearest_ss_random(dst)
+
+        return veh_assignment, bus_riders, ss_assignment
+
+    def find_greedy_path(self, customers):
+        if not customers:
+            return customers
+        greedy_path = np.full_like(customers, 0)
+
+        cur = random.choice(customers)
+        customers.remove(cur)
+        greedy_path[0] = cur
+
+        i = 0
+        while customers:
+            i += 1
+            min_cust = None
+            min_dist = np.inf
+            for c in customers:
+                dist = self.data['travel_distance'][self.data['demand']['OriginNodeID'][cur]][self.data['demand']['OriginNodeID'][c]]
+                if dist < min_dist and c != cur:
+                    min_dist = dist
+                    min_cust = c
+            if min_cust is None:
+                assert len(customers) == 1
+                min_cust = customers[0]
+
+            greedy_path[i] = min_cust
+            customers.remove(min_cust)
+            cur = min_cust
+        return greedy_path
+
     def build_chromosome(self, veh_assignment, bus_riders, ss_assignment):
         chromosome = ([], [], [], [])
         for veh in veh_assignment:
@@ -221,6 +292,10 @@ class BetterSample(Sampling):
                 chromosome = append_2d(chromosome, 0)
 
             customers = veh_assignment[veh]
+
+            # GET GREEDY PATH
+            # customers = self.find_greedy_path(customers)
+
             for customer in customers:
 
                 if (customer in bus_riders) and not (
@@ -257,7 +332,7 @@ class BetterSample(Sampling):
         for i in range(n_samples):
 
             # Choose vehicle, bus, ss for each customer
-            veh_assignment, bus_riders, ss_assignment = self.make_assignments()
+            veh_assignment, bus_riders, ss_assignment = self.make_assignments_greedy()
 
             # Build the chromosome
             chromosome = self.build_chromosome(veh_assignment, bus_riders, ss_assignment)

@@ -1,6 +1,8 @@
+from pymoo.factory import get_termination
 from pymoo.performance_indicator.hv import Hypervolume
 
 import pandas as pd
+from pymoo.util.termination.f_tol import MultiObjectiveSpaceToleranceTerminationWithRenormalization
 
 from model_2e.crossover import *
 from model_2e.mutation import *
@@ -17,8 +19,8 @@ plt.style.use('seaborn')
 
 
 class BasicGA(Algorithm):
-    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection):
-        super().__init__(pop_size, n_offspring, problem, sampling, crossover, mutation, selection)
+    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection, termination):
+        super().__init__(pop_size, n_offspring, problem, sampling, crossover, mutation, selection, termination)
         self.plot_dir = 'model_2e/plots/'
         make_dir(file_path=self.plot_dir)
 
@@ -135,7 +137,8 @@ class BasicGA(Algorithm):
             raise ValueError('Set save_history to True!')
         fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
 
-        ref_point = np.array([10000, 2000, 400])
+        ref_point = [10**np.ceil(np.log10(max(max(p), 1))) for p in list(map(list, zip(*self.history['F'])))]
+        # ref_point = np.array([10000, 2000, 400])
         # ref_point = np.array([10000, 2000, 400, 400, 10])
 
         # create the performance indicator object with reference point
@@ -206,13 +209,27 @@ if __name__ == '__main__':
         fig.savefig('model_2e/plots/convergence.jpg')
         plt.close(fig)
     else:
-        algo = BasicGA(pop_size=300,
-                       n_offspring=300,  # Default (None) uses the population size
+        termination = get_termination("n_gen", 200)
+        # termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=1000)
+        # termination = MultiObjectiveSpaceToleranceTermination(tol=0.0025,
+        #                                                       n_last=30,
+        #                                                       nth_gen=5,
+        #                                                       n_max_gen=1000,
+        #                                                       n_max_evals=None)
+        # termination = MultiObjectiveSpaceToleranceTerminationWithRenormalization(tol=0.0025,
+        #                                                                          n_last=30,
+        #                                                                          nth_gen=5,
+        #                                                                          n_max_gen=1000,
+        #                                                                          n_max_evals=None)
+
+        algo = BasicGA(pop_size=400,
+                       n_offspring=400,  # Default (None) uses the population size
                        problem=MyProblem,
                        sampling=BetterSample,
                        crossover=HybridCross,
                        mutation=RandomMutation,
                        selection=None,
+                       termination=termination
                        )
 
         algo.run(reduce_population_size_to=100)
@@ -221,11 +238,12 @@ if __name__ == '__main__':
             print('Found solution satisfying all customers')
             for f in algo.result.F:
                 if int(f[2]) == 0:
-                    print(f)
+                    print(f.astype(int))
 
         else:
             print(f'Did not find solution satisfying all customers. Best solution violates time windows by '
-                  f'a total of {int(min([f[2] for f in algo.result.F]))} minutes')
+                  f'a total of {int(min([f[2] for f in algo.result.F]))} minutes '
+                  f'(avg = {int(min([f[2] for f in algo.result.F]))/len(algo.data["demand"]["OriginNodeID"])} minutes)')
 
         # algo.plot_timespace(idx=-2)
         # algo.plot_all_timespace()

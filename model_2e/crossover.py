@@ -39,6 +39,7 @@ class HybridCross(Crossover):
                 bus_riders = list(set(a[0][np.logical_or(a[1] > 0, a[2] > 0)]))
                 for b in bus_riders:
                     assert len(np.where(a[0] == b)[0]) == 2
+
             Y[0, k, 0], Y[1, k, 0] = a_new, b_new
         return Y
 
@@ -71,8 +72,7 @@ class HybridCross(Crossover):
                 idx = np.where(chromosome[0] == bus_rider)[0]
                 if len(idx) == 1:
                     level = 1 if chromosome[1][idx] != -1 else 2
-
-                    bus = self.data['bus_stop_assignment'][chromosome[level][idx][0]]
+                    existing_stop = chromosome[1][idx] if chromosome[1][idx] != -1 else chromosome[2][idx]
 
                     entry = []
                     for old_chromosome_0 in [a, b]:
@@ -80,18 +80,19 @@ class HybridCross(Crossover):
                         for i_old in idx_old:
                             if old_chromosome_0[level][i_old] != -1:
                                 entry = [bus_rider, -1, -1, old_chromosome_0[3][i_old]]
-                                if old_chromosome_0[level][i_old] in self.data['bus_assignment'][bus]:
-                                    entry[level] = old_chromosome_0[level][i_old]
-                                else:
-                                    entry[level] = old_chromosome_0[level][i_old]
+                                entry[level] = old_chromosome_0[level][i_old]
                                 break
                         if entry:
                             break
 
                     # If none found, use random.
                     if not entry:
+                        print('OH NO')
                         entry = [bus_rider, -1, -1, random.choice(self.data['service_stations']).index]
-                        entry[level] = random.choice(self.data['bus_assignmnet'][bus])
+                        chosen_stop = random.choice(self.data['bus_stops'])
+                        while chosen_stop == existing_stop:
+                            chosen_stop = random.choice(self.data['bus_stops'])
+                        entry[level] = chosen_stop
 
                     insert_point = random.randint(0, len(chromosome[0]))  # Choose random insert point
                     chromosome = np.insert(chromosome, insert_point, entry, axis=1)
@@ -100,11 +101,10 @@ class HybridCross(Crossover):
             # bus_on or bus_off will be added in the later steps.
             for bus_rider in bus_riders:
                 while sum(chromosome[1][np.where(chromosome[0] == bus_rider)[0]] != -1) >= 2:
-                    chromosome[1][np.where(chromosome[0] == bus_rider)[0][
-                        chromosome[1][np.where(chromosome[0] == bus_rider)[0]] != -1][-1]] = -1
+                    chromosome[1][np.where(chromosome[0] == bus_rider)[0][chromosome[1][np.where(chromosome[0] == bus_rider)[0]] != -1][-1]] = -1
+
                 while sum(chromosome[2][np.where(chromosome[0] == bus_rider)[0]] != -1) >= 2:
-                    chromosome[2][np.where(chromosome[0] == bus_rider)[0][
-                        chromosome[2][np.where(chromosome[0] == bus_rider)[0]] != -1][-1]] = -1
+                    chromosome[2][np.where(chromosome[0] == bus_rider)[0][chromosome[2][np.where(chromosome[0] == bus_rider)[0]] != -1][-1]] = -1
 
             missing_customers = [c for c in all_customers if c not in chromosome[0]]
             extra_customers = [item for item, count in Counter(chromosome[0]).items() if (count > 1 and item != 0)]
@@ -163,7 +163,8 @@ class HybridCross(Crossover):
 
                     # Perform fixes
                     if bus_off_idx is None and bus_on_idx is None:
-                        # This is an extra customer, not a bus rider.
+                        # This is an extra customer, not a bus rider
+                        print('OH NO')
                         chromosome[1][idx[0]] = -1
                         chromosome[2][idx[0]] = -1
 
@@ -177,14 +178,11 @@ class HybridCross(Crossover):
                             if len(jdx) == 2:
                                 for j in jdx:
                                     if old_chromosome_0[2][j] != -1:
-                                        # Find the bus theyre riding and only use it
-                                        bus = self.data['bus_stop_assignment'][bus_on]
-                                        if old_chromosome_0[2][j] in self.data['bus_assignment'][bus]:
-                                            chromosome[2][bus_off_idx] = old_chromosome_0[2][j]
+                                        chromosome[2][bus_off_idx] = old_chromosome_0[2][j]
 
-                        if chromosome[2][bus_off_idx] == -1:
-                            # Not found therefore remove existing bus_on
-                            chromosome = np.delete(chromosome, bus_on_idx, axis=1)
+                        # if chromosome[2][bus_off_idx] == -1:
+                        #     # Not found therefore remove existing bus_on
+                        #     chromosome = np.delete(chromosome, bus_on_idx, axis=1)
 
                     elif bus_off != -1 and bus_on == -1:
                         # Missing bus_on. Take from old chromosome if it exists. Else remove
@@ -194,26 +192,24 @@ class HybridCross(Crossover):
                             if len(jdx) == 2:
                                 for j in jdx:
                                     if old_chromosome_0[1][j] != -1:
-                                        # Find the bus theyre riding and only use it
-                                        bus = self.data['bus_stop_assignment'][bus_on]
-                                        if old_chromosome_0[1][j] in self.data['bus_assignment'][bus]:
-                                            chromosome[1][bus_on_idx] = old_chromosome_0[1][j]
+                                        chromosome[1][bus_on_idx] = old_chromosome_0[1][j]
 
-                        if chromosome[1][bus_on_idx] == -1:
-                            # Not found therefore remove existing bus_off
-                            chromosome = np.delete(chromosome, bus_off_idx, axis=1)
+                        # if chromosome[1][bus_on_idx] == -1:
+                        #     # Not found therefore remove existing bus_off
+                        #     chromosome = np.delete(chromosome, bus_off_idx, axis=1)
 
                         assert not any(np.logical_and(chromosome[1] > 0, chromosome[2] > 0))
 
-                    elif bus_off != -1 and bus_on != -1:
-                        # Make sure customer are onboarding and offboarding the same bus
-                        bus = self.data['bus_stop_assignment'][bus_on]
+                    # elif bus_off != -1 and bus_on != -1:
+                    #     # Make sure customer are onboarding and offboarding the same bus
+                    #     bus = self.data['bus_stop_assignment'][bus_on]
+                    #
+                    #     if bus_off not in self.data['bus_assignment'][bus]:
+                    #         bus_off_choice = random.choice(self.data['bus_assignment'][bus])
+                    #         while bus_off_choice == bus_on:
+                    #             bus_off_choice = random.choice(self.data['bus_assignment'][bus])
+                    #         chromosome[2][bus_off_idx] = bus_off_choice
 
-                        if bus_off not in self.data['bus_assignment'][bus]:
-                            bus_off_choice = random.choice(self.data['bus_assignment'][bus])
-                            while bus_off_choice == bus_on:
-                                bus_off_choice = random.choice(self.data['bus_assignment'][bus])
-                            chromosome[2][bus_off_idx] = bus_off_choice
             if missing_customers:
                 for missing_customer in missing_customers:
                     # Can be replaced by a missing customer

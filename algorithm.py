@@ -14,7 +14,7 @@ plt.style.use('seaborn')
 
 
 class Algorithm:
-    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection):
+    def __init__(self, pop_size, n_offspring, problem, sampling, crossover, mutation, selection, termination):
         xls = pd.ExcelFile(r'data/FictitiousDataLarge.xlsx')
         self.demand = pd.read_excel(xls, 'CustomerDemand', header=0, index_col='CustomerID')
         self.demand.index = [c + 400 for c in self.demand.index]
@@ -23,11 +23,8 @@ class Algorithm:
         self.service_stations = pd.read_excel(xls, 'ServiceStations', header=0, index_col='ID')
         self.service_stations.index = [s + 500 for s in self.service_stations.index]
 
-        bus_schedule = pd.read_excel(xls, 'PublicTransit', header=0)  # Bus schedule
-        self.bus_assignment, self.bus_stop_assignment = self._get_bus_assignments(
-            bus_schedule)  # Nodes visited by each bus
-        self.bus_schedule = self._get_bus_schedule(bus_schedule)
-        self.bus_stops = np.concatenate(list(self.bus_assignment.values()))
+        self.bus_times = pd.read_excel(xls, 'PublicTransitTimes', index_col=0, header=0).to_dict()['Every']  # Bus schedule
+        self.bus_stops = list(self.bus_times.keys())
 
         time_windows = pd.read_excel(xls, 'TimeWindows', header=0, index_col='Code')
         time_windows['StartTime'] = [datetime.combine(date.today(), t) for t in time_windows['StartTime']]
@@ -42,8 +39,10 @@ class Algorithm:
 
         travel_distance = pd.read_excel(xls, 'OD-TravelDist', index_col=0, header=0)
         travel_time = pd.read_excel(xls, 'OD-TravelTime', index_col=0, header=0)
+        bus_travel_time = pd.read_excel(xls, 'PublicTransit', index_col=0, header=0)  # Bus schedule
         self.travel_distance = self._od_to_dict(travel_distance)
         self.travel_time = self._od_to_dict(travel_time)
+        self.bus_travel_time = self._od_to_dict(bus_travel_time)
 
         self.n_vehicles = len(self.service_stations)
 
@@ -54,30 +53,15 @@ class Algorithm:
             'demand': self.demand,  # Customer demand (time windows and OD)
             'time_windows': self.time_windows,  # Time window definitions
             'n_vehicles': self.n_vehicles,  # Number of vehicles available (== number of service stations)
-            'bus_assignment': self.bus_assignment,  # Assignment of bus stops to each bus
+            'bus_travel_time': self.bus_travel_time,
+            'bus_times': self.bus_times,
             'bus_stops': self.bus_stops,  # List of all bus stops
-            'bus_schedule': self.bus_schedule,  # Bus schedule
-            'bus_stop_assignment': self.bus_stop_assignment,  # Assignment of buses to each bus stop
             'customers': self.customers,  # List of all customers
         }
 
         self.result = None
         self.history = None
         self.algorithm = None
-
-        # termination = get_termination("n_gen", 200)
-        # termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=1000)
-        # termination = MultiObjectiveSpaceToleranceTermination(tol=0.0025,
-        #                                                       n_last=30,
-        #                                                       nth_gen=5,
-        #                                                       n_max_gen=1000,
-        #                                                       n_max_evals=None)
-
-        termination = MultiObjectiveSpaceToleranceTerminationWithRenormalization(tol=0.0025,
-                                                                                 n_last=30,
-                                                                                 nth_gen=5,
-                                                                                 n_max_gen=1000,
-                                                                                 n_max_evals=None)
 
         kwargs = {'pop_size': pop_size,
                   'n_offsprings': n_offspring,
@@ -108,9 +92,9 @@ class Algorithm:
 
             if reduce_population_size_to is not None:
                 if self.algorithm.pop_size > reduce_population_size_to:
-                    self.algorithm.pop_size = int(self.algorithm.pop_size / 1.1)
+                    self.algorithm.pop_size = max(reduce_population_size_to, int(self.algorithm.pop_size / 1.1))
                 if self.algorithm.n_offsprings > reduce_population_size_to:
-                    self.algorithm.n_offsprings = int(self.algorithm.n_offsprings / 1.1)
+                    self.algorithm.n_offsprings = max(reduce_population_size_to, int(self.algorithm.n_offsprings / 1.1))
 
         self.result = self.algorithm.result()  # Final results
 

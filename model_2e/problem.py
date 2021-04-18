@@ -5,7 +5,7 @@ from utils import *
 class MyProblem(Problem):
     def __init__(self, data):
         self.data = data
-        self.allowable_waiting = 15
+        self.allowable_waiting = 60
         chromosome_len = 1
         super().__init__(n_var=chromosome_len,  # Number of genes
                          n_obj=5,  # Number of objectives
@@ -18,18 +18,19 @@ class MyProblem(Problem):
         f1 = 0  # Travel distance
         f2 = 0  # Travel time
         f3 = 0  # Time window violation
-        # f4 = 0  # Slack time
-        # f5 = 0  # Number of vehicles
-        f6 = 1  # Number of people on buses
+        f4 = 0  # Slack time
+        f5 = 0  # Number of vehicles
+        f6 = 0  # Number of people on buses
+        f7 = 0  # Waiting time at bus stops
 
-        g1 = 0  # Bus timing violation
-        g2 = 0  # Time window violation
+        g1 = 0  # Bus timing violation (HARD!)
+        g2 = 0  # Time window violation (above threshold)
 
         bus_riders = {}
 
         # Separate chromosome into routes by the delimiter (0)
         veh_routes = split_at_delimiter_2d(X)
-        # f5 += len(veh_routes)
+        f5 += len(veh_routes)
 
         # Loop over each route
         for veh_i, veh_route in enumerate(veh_routes):
@@ -73,7 +74,8 @@ class MyProblem(Problem):
                     customer_dest = self.data['demand']['DestinationNodeID'][customer]
 
                 # Add travel time and distance to pick up customer and drop them off
-                travel_time += (self.data['travel_time'][ss_node][customer_org] + self.data['travel_time'][customer_org][customer_dest])
+                # NOTE: If bus stop is AT their destination, there is still a 5 minute travel time (to bring them to their exact destination)
+                travel_time += (self.data['travel_time'][ss_node][customer_org] + max(self.data['travel_time'][customer_org][customer_dest], 5))
                 f1 += (self.data['travel_distance'][ss_node][customer_org] + self.data['travel_distance'][customer_org][customer_dest])
 
                 # Find time window violation
@@ -82,8 +84,8 @@ class MyProblem(Problem):
                     tw_start = self._get_time_window(customer, bound='start')
                     tw_end = self._get_time_window(customer, bound='end')
                     if dropoff_time <= tw_start:
-                        # slack = (self._get_time_window(customer, bound='start') - dropoff_time)
-                        # f4 += slack.seconds / 60
+                        slack = (self._get_time_window(customer, bound='start') - dropoff_time)
+                        f4 += slack.seconds / 60
                         dropoff_time = tw_start
                     elif dropoff_time > tw_end:
                         time_violation = (dropoff_time - tw_end)
@@ -112,31 +114,19 @@ class MyProblem(Problem):
 
         # Check time window violation for bus riders
         for bus_rider in bus_riders:
-
-            bus = self.data['bus_stop_assignment'][bus_riders[bus_rider]['on']]
-
-            assert bus_riders[bus_rider]['on'] in self.data['bus_assignment'][bus]
-            assert bus_riders[bus_rider]['off'] in self.data['bus_assignment'][bus]
-
-            next_route_mask = bus_riders[bus_rider]['on_time'] < self.data['bus_schedule'][bus]['Time']
-
-            next_day = False
-            try:
-                # Try finding next time bus stops at destination
-                off_idx = np.where(self.data['bus_schedule'][bus]['Nodes'][next_route_mask] == bus_riders[bus_rider]['off'])[0][0]
-            except IndexError:
-                # If none, customer is dropped off next day
-                next_route_mask = ~next_route_mask
-                off_idx = np.where(self.data['bus_schedule'][bus]['Nodes'][next_route_mask] == bus_riders[bus_rider]['off'])[0][0]
-                next_day = True
-
-            off_time = self.data['bus_schedule'][bus]['Time'][next_route_mask][off_idx] + timedelta(days=next_day)
+            on_time = bus_riders[bus_rider]['on_time']
+            off_time = on_time
+            off_time += timedelta(minutes=(on_time.hour * 60 + on_time.minute + on_time.second / 60) % self.data['bus_times'][bus_riders[bus_rider]['on']])
+            off_time += timedelta(minutes=self.data['bus_travel_time'][bus_riders[bus_rider]['on']][bus_riders[bus_rider]['off']])
 
             if off_time > bus_riders[bus_rider]['off_time']:
                 bus_schedule_violation = off_time - bus_riders[bus_rider]['off_time']
                 g1 += bus_schedule_violation.seconds / 60
+            else:
+                waiting_time = bus_riders[bus_rider]['off_time'] - off_time
+                f7 += waiting_time.seconds / 60
 
-        out["F"] = np.array([f1, f2, f3], dtype=np.double)
+        out["F"] = np.array([f1, f2, f3, f4, f5, -f6, f7], dtype=np.double)
         out["G"] = np.array([g1, g2], dtype=np.double)
 
     @lru_cache
