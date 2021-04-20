@@ -209,7 +209,7 @@ if __name__ == '__main__':
         fig.savefig('model_2e/plots/convergence.jpg')
         plt.close(fig)
     else:
-        termination = get_termination("n_gen", 200)
+        termination = get_termination("n_gen", 400)
         # termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=1000)
         # termination = MultiObjectiveSpaceToleranceTermination(tol=0.0025,
         #                                                       n_last=30,
@@ -222,8 +222,8 @@ if __name__ == '__main__':
         #                                                                          n_max_gen=1000,
         #                                                                          n_max_evals=None)
 
-        algo = BasicGA(pop_size=400,
-                       n_offspring=400,  # Default (None) uses the population size
+        algo = BasicGA(pop_size=800,
+                       n_offspring=800,  # Default (None) uses the population size
                        problem=MyProblem,
                        sampling=BetterSample,
                        crossover=HybridCross,
@@ -232,7 +232,7 @@ if __name__ == '__main__':
                        termination=termination
                        )
 
-        algo.run(reduce_population_size_to=100)
+        algo.run(reduce_population_size_to=200)
 
         if int(min([f[2] for f in algo.result.F])) == 0:
             print('Found solution satisfying all customers')

@@ -12,7 +12,7 @@ class RandomMutation(Mutation):
 
     def _do(self, problem, X, **kwargs):
         for i in range(len(X)):
-            if random.random() < 0.01:
+            if random.random() < 0.05:
                 # for each individual
                 choice = random.randint(1, 4)
                 if choice == 1:
