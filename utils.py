@@ -1,3 +1,4 @@
+import functools
 from datetime import datetime, date, timedelta
 from itertools import tee, chain
 import numpy as np
@@ -80,6 +81,7 @@ def make_dir(file_path='', dir_path=''):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
+
 def create_od(shp_fn):
     shp = gpd.read_file(shp_fn)
     od_dict = {}
@@ -92,3 +94,9 @@ def create_od(shp_fn):
             d_geo =  loc_d.geometry
             od_dict[o][d] = int(o_geo.distance(d_geo))
     return od_dict
+
+
+def partialclass(cls, *args, **kwds):
+    class NewCls(cls):
+        __init__ = functools.partialmethod(cls.__init__, *args, **kwds)
+    return NewCls

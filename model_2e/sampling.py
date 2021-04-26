@@ -104,31 +104,31 @@ class BetterSample(Sampling):
         super().__init__()
         self.data = data
 
-    def cluster(self):
-        veh_assignment = {ss_id: [] for ss_id in self.data['service_stations'].index}
-        for customer in self.data['customers']:
-            org = self.data['demand']['OriginNodeID'][customer]
-            dst = self.data['demand']['DestinationNodeID'][customer]
-
-            # Find total distances from SS -> Customer -> Destination for each SS
-            ss_distances = np.array(
-                [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst] for ss in
-                 self.data['service_stations'].NodeID]
-            )
-
-            # Sort the distances and choose a (weighted) random choice of the closest 1/3 SS's.
-            sorted_ss = self.data['service_stations'].index[ss_distances.argsort()]
-            sorted_ss = sorted_ss[:int(np.ceil(len(sorted_ss)/3))]
-            weights = reversed(range(1, len(sorted_ss) + 1))
-            weights = [weight / sum(weights) for weight in weights]
-            ss_id = np.random.choice(sorted_ss, p=weights)
-
-            # ss_id = self.data['service_stations'].index[np.argmin(
-            # [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst]
-            #  for ss in self.data['service_stations'].NodeID])]
-
-            veh_assignment[ss_id].append(customer)
-        return veh_assignment
+    # def cluster(self):
+    #     veh_assignment = {ss_id: [] for ss_id in self.data['service_stations'].index}
+    #     for customer in self.data['customers']:
+    #         org = self.data['demand']['OriginNodeID'][customer]
+    #         dst = self.data['demand']['DestinationNodeID'][customer]
+    #
+    #         # Find total distances from SS -> Customer -> Destination for each SS
+    #         ss_distances = np.array(
+    #             [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst] for ss in
+    #              self.data['service_stations'].NodeID]
+    #         )
+    #
+    #         # Sort the distances and choose a (weighted) random choice of the closest 1/3 SS's.
+    #         sorted_ss = self.data['service_stations'].index[ss_distances.argsort()]
+    #         sorted_ss = sorted_ss[:int(np.ceil(len(sorted_ss)/3))]
+    #         weights = reversed(range(1, len(sorted_ss) + 1))
+    #         weights = [weight / sum(weights) for weight in weights]
+    #         ss_id = np.random.choice(sorted_ss, p=weights)
+    #
+    #         # ss_id = self.data['service_stations'].index[np.argmin(
+    #         # [self.data['travel_distance'][org][ss] + self.data['travel_distance'][ss][dst]
+    #         #  for ss in self.data['service_stations'].NodeID])]
+    #
+    #         veh_assignment[ss_id].append(customer)
+    #     return veh_assignment
 
     def find_nearest_ss_random(self, node, proportion=0.33):
         # Find distances from Destination -> SS

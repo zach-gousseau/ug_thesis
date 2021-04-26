@@ -6,13 +6,14 @@ from collections import Counter
 
 
 class RandomMutation(Mutation):
-    def __init__(self, data):
+    def __init__(self, data, rate=0.05):
         super().__init__()
         self.data = data
+        self.rate = rate
 
     def _do(self, problem, X, **kwargs):
         for i in range(len(X)):
-            if random.random() < 0.05:
+            if random.random() < self.rate:
                 # for each individual
                 choice = random.randint(1, 4)
                 if choice == 1:
@@ -99,4 +100,14 @@ class RandomMutation(Mutation):
         except IndexError:
             return self.add_bus_rider(X)
 
+        return X
+
+
+class Blank(Mutation):
+    def __init__(self, data, rate=0.05):
+        super().__init__()
+        self.data = data
+        self.rate = rate
+
+    def _do(self, problem, X, **kwargs):
         return X
