@@ -5,7 +5,9 @@ from pymoo.performance_indicator.hv import Hypervolume
 
 import pandas as pd
 import json
-from pymoo.util.termination.f_tol import MultiObjectiveSpaceToleranceTerminationWithRenormalization
+from pymoo.util.termination.f_tol import MultiObjectiveSpaceToleranceTerminationWithRenormalization, \
+    MultiObjectiveSpaceToleranceTermination
+from pymoo.util.termination.x_tol import DesignSpaceToleranceTermination
 
 from model_2e.crossover import *
 from model_2e.mutation import *
@@ -107,7 +109,7 @@ class BasicGA(Algorithm):
         df = df.sort_values(['Vehicle', 'ActualPickup'])
         df.reset_index(inplace=True)
 
-        fig, ax = plt.subplots(figsize=(12, 4), dpi=110)
+        fig, ax = plt.subplots(figsize=(12, 4), dpi=180)
         prev_veh, prev_pickup = -99, -99
         for i, customer in df.iterrows():
             if prev_veh != customer['Vehicle']:
@@ -177,7 +179,7 @@ class BasicGA(Algorithm):
 
         else:
             # visualze the convergence curve
-            fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
+            fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
             ax.plot(self.history['n_evals'], hv, '-o', markersize=4, linewidth=2)
             ax.set_title("Convergence")
             ax.set_xlabel("Function Evaluations")
@@ -188,15 +190,46 @@ class BasicGA(Algorithm):
 
 if __name__ == '__main__':
     print('Begin')
+    print('NORMAL RUN ----------------------------------------------------------------------------------------------')
+    pop = 200
+    # termination = get_termination("n_gen", 400)
+    # termination = get_termination("n_eval", 50000)
+    termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=1000)
+    # termination = MultiObjectiveSpaceToleranceTermination(tol=0.0025, n_last=30, nth_gen=5, n_max_gen=1000, n_max_evals=None)
+    # termination = MultiObjectiveSpaceToleranceTerminationWithRenormalization(tol=0.0025, n_last=30, nth_gen=5, n_max_gen=1000, n_max_evals=None)
+
+    algo = BasicGA(pop_size=pop,
+                   n_offspring=pop,  # Default (None) uses the population size
+                   problem=MyProblem,
+                   sampling=BetterSample,
+                   crossover=HybridCross,
+                   mutation=RandomMutation,
+                   selection=None,
+                   termination=termination
+                   )
+
+    algo.run(reduce_population_size_to=100)
+    algo.get_convergence(f'model_2e/results/normal.json')
+
+    # Save results
+    j = pd.read_json('model_2e/results/normal.json')
+
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
+    ax.plot(j['n_evals'], j['hypervolume'], linewidth=1.5, label=pop)
+
+    # ax.set_title("Convergence")
+    ax.set_xlabel("Function Evaluations")
+    ax.set_ylabel("Hypervolume")
+    ax.legend()
+    fig.savefig(os.path.join('model_2e/plots/normal.jpg'))
+    plt.close(fig)
+
+
     # print('COMPARE POPULATION SIZES ---------------------------------------------------------------------------------------')
     # # for pop in [50, 100, 200, 400, 800]:
     # for pop in np.linspace(50, 400, 10):
     #     pop = int(pop)
-    #     # termination = get_termination("n_gen", 400)
     #     termination = get_termination("n_eval", 50000)
-    #     # termination = DesignSpaceToleranceTermination(tol=0.1, n_last=20, n_max_gen=1000)
-    #     # termination = MultiObjectiveSpaceToleranceTermination(tol=0.0025, n_last=30, nth_gen=5, n_max_gen=1000, n_max_evals=None)
-    #     # termination = MultiObjectiveSpaceToleranceTerminationWithRenormalization(tol=0.0025, n_last=30, nth_gen=5, n_max_gen=1000, n_max_evals=None)
     #
     #     algo = BasicGA(pop_size=pop,
     #                    n_offspring=pop,  # Default (None) uses the population size
@@ -251,16 +284,21 @@ if __name__ == '__main__':
     #     print(f'Ran {n_eval} in {(time.time() - start)/60} minutes')
     #
     # # Save results
-    # virid = cm.get_cmap('viridis', 100)
-    # jsons = sorted(glob.glob('model_2e/results/mutation_rate_*.json'))
+    # virid = cm.get_cmap('cividis', 100)
+    # jsons = sorted(glob.glob('model_2e/results/mutation_rate_1/mutation_rate_*.json'))[::2]
     # dfs = {}
     # for j in jsons:
     #     dfs[os.path.basename(j).split('.')[0]] = pd.read_json(j)
     #
-    # fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
+    # fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
     # for df in dfs:
     #     rate = round(float('0.' + df.split('_')[-1][1:]), 3)
-    #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], linewidth=1.5, color=virid(rate/0.5))
+    #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], ls='-', linewidth=1.5, color=virid(rate / 0.5))
+    #     # satisfies_all = dfs[df]['satisfies_all'].values[0]
+    #     # if satisfies_all:
+    #     #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], ls='-', linewidth=1.5, color=virid(rate/0.5))
+    #     # else:
+    #     #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], ls='--', linewidth=1.5, color=virid(rate / 0.5))
     #
     # ax.set_xlabel("Function Evaluations")
     # ax.set_ylabel("Hypervolume")
@@ -268,11 +306,15 @@ if __name__ == '__main__':
     # fig.savefig(os.path.join('model_2e/plots/compare_mutation.jpg'))
     # plt.close(fig)
     #
-    # fig, ax = plt.subplots(figsize=(8, 4), dpi=110)
+    # fig, ax = plt.subplots(figsize=(8, 4), dpi=180)
     # for df in dfs:
     #     rate = float('0.' + df.split('_')[-1][1:])
     #     ax.scatter(rate, dfs[df]['n_evals_to_feasible'][0], label=rate, color='firebrick', s=14)
-    #
+    #     # satisfies_all = dfs[df]['satisfies_all'].values[0]
+    #     # if satisfies_all:
+    #     #     ax.scatter(rate, dfs[df]['n_evals_to_feasible'][0], label=rate, color='green', s=14)
+    #     # else:
+    #     #     ax.scatter(rate, dfs[df]['n_evals_to_feasible'][0], label=rate, color='firebrick', s=14)
     # # ax.set_title("Function Evaluations to Feasible Solution")
     # ax.set_xlabel("Mutation Rate")
     # ax.set_ylabel("Function Evaluations to Feasible Solution")
@@ -329,7 +371,7 @@ if __name__ == '__main__':
     #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], linewidth=1.5, color='silver')
     #
     # jsons = ['model_2e/results/crossover_1/crossover_1111.json', 'model_2e/results/crossover_1/crossover_1011.json']
-    # labels = ['Uniform', 'Exclude cross_within_routes']
+    # labels = ['All crossovers', 'All crossovers, exclude cross_within_routes']
     # dfs = {}
     # for j in jsons:
     #     dfs[os.path.basename(j).split('.')[0]] = pd.read_json(j)
@@ -362,19 +404,17 @@ if __name__ == '__main__':
     #     algo.run(reduce_population_size_to=100)
     #     algo.get_convergence(f'model_2e/results/blank{_}.json')
     #
-    # # Save results (dominators)
-    # jsons = glob.glob('model_2e/results/blank*.json')
+    # jsons = glob.glob('model_2e/results/random/blank*.json')
     # dfs = {}
     # for j in jsons:
     #     dfs[os.path.basename(j).split('.')[0]] = pd.read_json(j)
     #
-    # fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
+    # fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
     # for df in dfs:
     #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], linewidth=2)
     #
     # ax.set_xlabel("Function Evaluations")
     # ax.set_ylabel("Hypervolume")
-    # ax.legend()
     # fig.savefig(os.path.join('model_2e/plots/random_walk.jpg'))
     # plt.close(fig)
 
@@ -427,7 +467,7 @@ if __name__ == '__main__':
     #     f3 = np.max([np.max([f[3] for f in algo.history['F']]) for algo in algos])
     #     f4 = np.max([np.max([f[4] for f in algo.history['F']]) for algo in algos])
     #
-    #     fig, ax = plt.subplots(figsize=(8, 6), dpi=110)
+    #     fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
     #
     #     for algo, name_ in zip(algos, names):
     #         if algo.history is None:

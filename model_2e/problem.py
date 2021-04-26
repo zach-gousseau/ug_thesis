@@ -129,7 +129,7 @@ class MyProblem(Problem):
         out["F"] = np.array([f1, f2, f3, f4, f5, -f6, f7], dtype=np.double)
         out["G"] = np.array([g1, g2], dtype=np.double)
 
-    @lru_cache
+    @lru_cache()
     def _get_time_window(self, customer=None, bound='start'):
         if bound == 'start':
             bound = 'StartTime'
