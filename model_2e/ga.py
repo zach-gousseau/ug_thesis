@@ -145,13 +145,7 @@ class BasicGA(Algorithm):
 
         # ref_point = [10**np.ceil(np.log10(max(max(p), 1))) for p in list(map(list, zip(*self.history['F'])))]
         ref_point = [10000.0, 1000.0, 10000.0, 10000.0, 10.0, 1.0, 10000.0]
-        # ref_point = np.array([10000, 2000, 400])
-        # ref_point = np.array([10000, 2000, 400, 400, 10])
-
-        # create the performance indicator object with reference point
         metric = Hypervolume(ref_point=ref_point, normalize=False)
-
-        # calculate for each generation the HV metric
         hv = [metric.calc(f) for f in self.history['F']]
 
         num_gens = len(self.result.history)
@@ -178,7 +172,6 @@ class BasicGA(Algorithm):
                 json.dump(data, outfile)
 
         else:
-            # visualze the convergence curve
             fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
             ax.plot(self.history['n_evals'], hv, '-o', markersize=4, linewidth=2)
             ax.set_title("Convergence")
@@ -189,8 +182,10 @@ class BasicGA(Algorithm):
 
 
 if __name__ == '__main__':
-    print('Begin')
-    print('NORMAL RUN ----------------------------------------------------------------------------------------------')
+    # ------------------------------------------------------------------------------------------------------------------
+    # RUN BASE ALGORITHM -----------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    print('Run base algorithm')
     pop = 200
     # termination = get_termination("n_gen", 400)
     # termination = get_termination("n_eval", 50000)
@@ -217,16 +212,16 @@ if __name__ == '__main__':
     fig, ax = plt.subplots(figsize=(8, 6), dpi=180)
     ax.plot(j['n_evals'], j['hypervolume'], linewidth=1.5, label=pop)
 
-    # ax.set_title("Convergence")
     ax.set_xlabel("Function Evaluations")
     ax.set_ylabel("Hypervolume")
     ax.legend()
     fig.savefig(os.path.join('model_2e/plots/normal.jpg'))
     plt.close(fig)
 
-
-    # print('COMPARE POPULATION SIZES ---------------------------------------------------------------------------------------')
-    # # for pop in [50, 100, 200, 400, 800]:
+    # ------------------------------------------------------------------------------------------------------------------
+    # COMPARE POPULATION SIZE ------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # print('Compare population sizes')
     # for pop in np.linspace(50, 400, 10):
     #     pop = int(pop)
     #     termination = get_termination("n_eval", 50000)
@@ -246,7 +241,7 @@ if __name__ == '__main__':
     #
     # # Save results
     # jsons = sorted(glob.glob('model_2e/results/population_1/pop*.json'))
-    # virid = cm.get_cmap('viridis', 100)
+    # virid = cm.get_cmap('cividis', 100)
     # dfs = {}
     # for j in jsons:
     #     dfs[os.path.basename(j).split('.')[0]] = pd.read_json(j)
@@ -256,14 +251,15 @@ if __name__ == '__main__':
     #     pop = int(df.split('_')[-1])
     #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], linewidth=1.5, label=pop, color=virid(pop/800))
     #
-    # # ax.set_title("Convergence")
     # ax.set_xlabel("Function Evaluations")
     # ax.set_ylabel("Hypervolume")
-    # ax.legend()
     # fig.savefig(os.path.join('model_2e/plots/compare_pop.jpg'))
     # plt.close(fig)
 
-    # print('COMPARE MUTATION RATE -------------------------------------------------------------------------------------')
+    # ------------------------------------------------------------------------------------------------------------------
+    # COMPARE MUTATION RATES -------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # print('Compare mutation rates')
     # n_eval = 50000
     # for rate in np.linspace(0.06, 0.5, 20):
     #     start = time.time()
@@ -321,11 +317,12 @@ if __name__ == '__main__':
     # fig.savefig(os.path.join('model_2e/plots/func_evals_to_rate.jpg'))
     # plt.close(fig)
 
-
-
-    # print('COMPARE CROSSOVER -----------------------------------------------------------------------------------------')
+    # ------------------------------------------------------------------------------------------------------------------
+    # COMPARE CROSSOVER OPERATORS --------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # print('Compare crossover operators')
     # random.seed(42)
-    # co_operators = ['cross_routes', 'cross_within_routes', 'cross_bus', 'cross_ss']
+    # co_operators = ['Inter-route crossover', 'Intra-route crossover', 'Public transit crossover', 'Service station crossover']
     # for weights in [[3, 1, 1, 1], [1, 3, 1, 1], [1, 1, 3, 1], [1, 1, 1, 3], [1, 1, 1, 1], [1, 0, 1, 1]]:
     #     termination = get_termination("n_eval", 50000)
     #
@@ -371,7 +368,7 @@ if __name__ == '__main__':
     #     ax.plot(dfs[df]['n_evals'], dfs[df]['hypervolume'], linewidth=1.5, color='silver')
     #
     # jsons = ['model_2e/results/crossover_1/crossover_1111.json', 'model_2e/results/crossover_1/crossover_1011.json']
-    # labels = ['All crossovers', 'All crossovers, exclude cross_within_routes']
+    # labels = ['Baseline (all crossovers equally weighted)', 'All crossovers exclude intra-route crossover']
     # dfs = {}
     # for j in jsons:
     #     dfs[os.path.basename(j).split('.')[0]] = pd.read_json(j)
@@ -385,8 +382,10 @@ if __name__ == '__main__':
     # fig.savefig(os.path.join('model_2e/plots/compare_crossover_exclusions.jpg'))
     # plt.close(fig)
 
-
-    # print('COMPARE RANDOM --------------------------------------------------------------------------------------------')
+    # ------------------------------------------------------------------------------------------------------------------
+    # COMPARE WITH RANDOM SEARCH ---------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
+    # print('Compare with random search')
     # random.seed(42)
     # for _ in range(4):
     #     termination = get_termination("n_eval", 50000)
@@ -418,12 +417,8 @@ if __name__ == '__main__':
     # fig.savefig(os.path.join('model_2e/plots/random_walk.jpg'))
     # plt.close(fig)
 
-
-
-
-
-
-
+    # ------------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------------
     # if int(min([f[2] for f in algo.result.F])) == 0:
     #     print('Found solution satisfying all customers')
     #     for f in algo.result.F:
@@ -491,4 +486,3 @@ if __name__ == '__main__':
     #     ax.legend()
     #     fig.savefig('model_2e/plots/convergence.jpg')
     #     plt.close(fig)
-    # else:
